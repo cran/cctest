@@ -1,0 +1,2 @@
+export(cctest)
+importFrom(stats,pchisq,pbeta,naresid,model.matrix,model.matrix.lm,model.offset,model.weights)
