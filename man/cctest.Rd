@@ -57,15 +57,17 @@
     diagonal elements of \eqn{D}}
   \item{statistic}{vector of p-values based on Pillai’s statistic and 
     classical chi-squared and F approximations}
+  \item{df.residual}{the number \eqn{r}}
   \item{method}{the name of the function}
-  \item{data.name}{a character string representation of \code{formula}}
+  \item{data.name}{a character string representation of \code{formula} 
+    (possibly shortened)}
 }
 
 \details{
 \code{cctest} unifies various classical statistical procedures that involve 
 the same underlying computations, including t-tests, tests in univariate and 
 multivariate linear models, parametric and nonparametric tests for 
-correlation, Kruskal--Wallis tests, standard non-exact versions of Wilcoxon 
+correlation, Kruskal--Wallis tests, common approximate versions of Wilcoxon 
 rank-sum and signed rank tests, chi-squared tests of independence, score 
 tests of particular hypotheses in generalized linear models, canonical 
 correlation analysis and linear discriminant analysis (see Examples).
@@ -81,15 +83,14 @@ rectangular diagonal matrix with decreasing diagonal elements. The scaling
 factor \eqn{r}, which should be nonzero, is the dimension of the orthogonal 
 complement of the column space of \eqn{A_{0}}.
 
-The function realizes this variant of the singular value decomposition (cf. 
-Greenacre 1984, p. 344) by first computing preliminary QR factorizations of 
-the stated form (taking \eqn{r=1}) without the requirement on \eqn{D}, and 
-then, in a second step, modifying these based on a standard singular value 
-decomposition of that matrix. The main work is done in a rotated coordinate 
-system where the column space of \eqn{A} aligns with the coordinate axes. The 
-basic approach and the rank detection algorithm are inspired by the 
-implementations in \code{\link[stats]{cancor}} and in 
-\code{\link[stats]{lm}}, respectively.
+The function realizes this variant of the singular value decomposition by 
+first computing preliminary QR factorizations of the stated form (taking 
+\eqn{r=1}) without the requirement on \eqn{D}, and then, in a second step, 
+modifying these based on a standard singular value decomposition of that 
+matrix. The main work is done in a rotated coordinate system where the column 
+space of \eqn{A} aligns with the coordinate axes. The basic approach and the 
+rank detection algorithm are inspired by the implementations in 
+\code{\link[stats]{cancor}} and in \code{\link[stats]{lm}}, respectively.
 
 The diagonal elements of \eqn{D}, or singular values, are the estimated 
 \emph{canonical correlations} (Hotelling 1936) of the variables 
@@ -117,9 +118,9 @@ Anderson 2007) given by
 \eqn{1\geq t_{1}\geq \cdots \geq t_{s}\geq 0}. For \eqn{s=1} this reduces 
 to the well-known case of a single beta distributed \eqn{R^{2}} or 
 equivalently an F distributed 
-\eqn{R^{2}/(r_{x}+r_{y}-1) \over (1-R^{2})/(r-r_{x}-r_{y}+1)}, with the 
-divisors in the numerator and denominator representing the degrees of 
-freedom, or twice the parameters of the beta distribution.
+\eqn{R^{2}/(r_{x}r_{y}) \over (1-R^{2})/(r-r_{x}r_{y})}, with the divisors in 
+the numerator and denominator representing the degrees of freedom, or twice 
+the parameters of the beta distribution.
 
 Pillai’s statistic is the sum of squares of the canonical correlations, which 
 equals, even without the requirement on \eqn{D}, the squared Frobenius norm 
@@ -168,9 +169,6 @@ Pillai, K.C.S. (1954). \emph{On some distribution problems in multivariate
   analysis} (Institute of Statistics mimeo series 88). North Carolina State 
   University, Dept. of Statistics.
 
-Greenacre, M.J. (1984). \emph{Theory and application of correspondence 
-  analysis}. Academic Press.
-
 Anderson, T.W. (2003). \emph{An introduction to multivariate statistical 
   analysis}, 3rd edition, Ch. 12–13. Wiley.
 
@@ -183,8 +181,9 @@ Anderson, T.W. (2007). Multiple discoveries: distribution of roots of
 \seealso{
 Functions \code{\link[stats]{cancor}}, \code{\link[stats]{anova.mlm}} in 
 package \code{stats} and implementations of canonical correlation analysis in 
-other packages such as \code{MVar}, \code{candisc} (both including tests 
-based on Wilks’ statistic), \code{yacca}, \code{CCA}.
+other packages such as \code{CCP} (tests only), \code{MVar}, \code{candisc} 
+(both including tests based on Wilks’ statistic), \code{yacca}, \code{CCA}, 
+\code{acca}, \code{whitening}.
 }
 
 \examples{

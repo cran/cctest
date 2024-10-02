@@ -56,7 +56,8 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
     statistic = c(               # approximate p-values
       "p-value (chi\u00b2 approx.)"=pchisq(V*r, t, lower.tail=FALSE),
       `p-value (F approx.)`=pbeta(V/s, t/2, (r*s-t)/2, lower.tail=FALSE)),
-    method = sys.call()[[1L]],
-    data.name = deparse1(substitute(formula))
+    df.residual = r,             # residual degrees of freedom
+    method = "cctest",
+    data.name = deparse(substitute(formula), nlines=1L)
   ))
 }
