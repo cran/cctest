@@ -1,5 +1,5 @@
 Package: cctest
-Version: 1.1.0
+Version: 1.2.0
 Title: Canonical Correlations and Tests of Independence
 Description: A simple interface for multivariate correlation analysis that unifies various classical
   statistical procedures including t-tests, tests in univariate and multivariate linear models,
@@ -15,6 +15,6 @@ Maintainer: Robert Schlicht <robert.schlicht@tu-dresden.de>
 License: EUPL (>= 1.1)
 Imports: stats
 NeedsCompilation: no
-Packaged: 2024-10-02 12:32:28 UTC; Schlicht
+Packaged: 2025-01-03 09:10:37 UTC; Schlicht
 Repository: CRAN
-Date/Publication: 2024-10-02 14:20:02 UTC
+Date/Publication: 2025-01-07 11:50:07 UTC
