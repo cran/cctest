@@ -33,7 +33,7 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
   # Determine residual degrees of freedom (weights are numbers of trials):
   r <- sum(w) - QR(vars$A0,tol,,qa$o)$rank
 
-  # Compute singular value decomposition of Qy*Qy and new rotated variables:
+  # Compute singular value decomposition of Qx*Qy and new rotated variables:
   SVD <- if (rx && ry) svd(crossprod(Qx,Qy), rx, ry) else
     list(d=numeric(), u=diag(rx), v=diag(ry))
   x <- Q(qx, rbind(sqrt(r)*SVD$u, matrix(0,n-rx,rx)))

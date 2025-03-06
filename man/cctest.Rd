@@ -188,7 +188,7 @@ other packages such as \code{CCP} (tests only), \code{MVar}, \code{candisc}
 
 \examples{
 ## Artificial observations in 5-by-5 meter quadrats in a forest for
-## comparing cctest analyses with equivalent "stats" methods:
+## comparing cctest analyses with equivalent 'stats' methods:
 set.seed(0)
 dat <- within(data.frame(row.names=1:150), {
   plot <- sample(factor(c("a","b")), 150, TRUE)         # plot a or b
