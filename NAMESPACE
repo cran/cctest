@@ -1,2 +1,2 @@
 export(cctest)
-importFrom(stats,pchisq,pbeta,naresid,model.matrix,model.offset,model.weights)
+importFrom(stats,pchisq,pbeta,complete.cases,naresid,model.matrix,model.offset,model.weights)
