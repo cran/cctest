@@ -5,7 +5,8 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
     q<-qr(x[o,,drop=FALSE],LAPACK=TRUE); t<-abs(diag(q$qr))>tol
     q$rank<-sum(t); q$qr<-q$qr[,t,drop=FALSE]; q$qraux<-q$qraux[t]
     q$o<-o; q$d<-qr.qty(q,x[o,q$pivot[!t],drop=FALSE])*(n>q$rank); q}
-  Q <- function(q,y) {y[q$o,]<-qr.qy(q,y);rownames(y)[q$o]<-rownames(q$qr); y}
+  Q <- function(q,y) {y[q$o,]<-qr.qy(q,y)
+    rownames(y)<-NULL; rownames(y)[q$o]<-rownames(q$qr); y}
 
   # Prepare variables as matrices:
   f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]],
@@ -35,11 +36,10 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
     }, matrices(...)))
     vars <- eval(substitute(.(Y=Y,X=X,A=A,A0=A0), c(f,.=matrices)), data, env)
     args <- lapply(cl[-1L], eval, data, parent.frame())
-    w <- cc <- do.call(complete.cases, vars)
-    w[] <- if (is.null(wt<-args$weights)) 1 else wt; w[!cc] <- NA
+    w <- as.numeric(do.call(complete.cases, vars))
+    if (!is.null(wts<-args$weights)) w[] <- wts
     if (!is.null(rownms<-row.names(data)) && length(rownms)==length(w))
       vars <- lapply(vars, `rownames<-`, rownms)
-    if (!is.null(h<-args$offset)) {vars$X<-vars$X-h; vars$Y<-vars$Y-h}
     if (!is.null(ss<-args$subset))
       {vars <- lapply(vars,`[`,ss,,drop=FALSE); w <- w[ss]}
     naadjust <- function(x) x
@@ -47,7 +47,10 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
 
   # Center rotated variables X, Y by removing effects of A:
   z <- sqrt(w) + (sqrt0<-.Machine$double.xmin^.75); stopifnot(sqrt0^2==0)
-  vars <- lapply(vars, function(x) {x<-x*z; x[is.na(w),]<-0; x})
+  vars <- lapply(vars, `*`, z)
+  na <- lapply(vars, function(x) !w & !complete.cases(x))
+  for (i in seq_along(vars)) vars[[i]][na[[i]],] <- 0
+  zx <- zy <- z; zx[na$A|na$X] <- zy[na$A|na$Y] <- NA
   qa <- QR(vars$A,tol,,order(w,decreasing=TRUE))
   X <- qr.qty(qa,vars$X[qa$o,,drop=FALSE])
   Y <- qr.qty(qa,vars$Y[qa$o,,drop=FALSE])
@@ -58,7 +61,7 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
   qy <- QR(Y,tol,qa$rank); l <- qy$rank; Qy <- Q(qy,diag(,n,l))
 
   # Determine residual degrees of freedom (weights are numbers of trials):
-  r <- sum(w,na.rm=TRUE) - QR(vars$A0,tol,,qa$o)$rank
+  r <- sum(w) - QR(vars$A0,tol,,qa$o)$rank
 
   # Compute singular value decomposition of Qx*Qy and new rotated variables:
   SVD <- if (k && l) svd(crossprod(Qx,Qy), k, l) else
@@ -67,22 +70,21 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
   y <- Q(qy, rbind(sqrt(r)*SVD$v, matrix(0,n-l,l)))
 
   # Check computability for rows with w=0 (optional, with +sqrt0 above):
-  dfct <- function(d) !is.na(w) & .rowSums(abs(d)>tol*z,n,ncol(d)) > 0
-  zx <- z; zx[dfct(Q(qa,cbind(qa$d,Q(qx,qx$d))))] <- NaN
-  zy <- z; zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
+  dfct <- function(d) .rowSums(abs(d)>tol*z,n,ncol(d)) > 0
+  zx[dfct(Q(qa,cbind(qa$d,Q(qx,qx$d))))] <- NaN
+  zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
 
   # Compute results:
   V <- sum(SVD$d^2)    # Pillai's statistic
-  s <- length(SVD$d); t <- k*l
+  t <- k*l; u <- c(beta=r*length(SVD$d), gamma=Inf)
   structure(class="htest", list(
     x = naadjust(Q(qa,x)/zx),   # new transformed variables
     y = naadjust(Q(qa,y)/zy),
     xinv = crossprod(x,X)/r,    # inverse coordinate transformations
     yinv = crossprod(y,Y)/r,
     estimate = c(cor=SVD$d),    # canonical correlations (non-negative)
-    statistic = c(              # approximate p-values
-      "p-value (chi\u00b2 approx.)"=pchisq(V*r, t, lower.tail=FALSE),
-      `p-value (F approx.)`=pbeta(V/s, t/2, (r*s-t)/2, lower.tail=FALSE)),
+    statistic = c(`p-value`=    # approximate p-values
+      replace(pf((1/(V*r)-1/u) / (1/t-1/u), u-t, t), !(0<t & t<u), 1)),
     df.residual = r,            # residual degrees of freedom
     method = "cctest",
     data.name = deparse(substitute(formula), nlines=1L)
@@ -109,7 +111,7 @@ matrices <- function(...) {
     x
   })
 
-  # Add deparsed column names as required:
+  # Create column names from deparsed expressions as needed:
   makenms <- vapply(l, function(x) ncol(x)==1L && is.null(dimnames(x)), NA)
   if (any(makenms)) {
     expr <- substitute(list(...))[-1L]
@@ -121,7 +123,7 @@ matrices <- function(...) {
   is.matrix <- vapply(l, is.matrix, NA)
   nrow <- vapply(l, nrow, 0L)
   n <- nrow[nrow!=1L][1L]
-  stopifnot(all(is.matrix) && all(nrow==1L | nrow==n))
+  stopifnot(is.matrix, nrow==1L | nrow==n)
   if (!is.na(n)) for (i in seq_along(l)[nrow==1L])
     l[[i]] <- l[[i]][rep.int(1L,n),,drop=FALSE]
   l

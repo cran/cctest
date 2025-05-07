@@ -19,20 +19,27 @@
     \code{Y ~ X ~ A}, where \code{Y} represents dependent variables, \code{X} 
     represents a second set of dependent variables or explanatory variables 
     not present under the null hypothesis, and \code{A} represents 
-    explanatory variables that remain under the null hypothesis. The 
-    \link[stats:formula]{operators} and \link[stats:model.matrix]{expansion} 
-    rules defined for the \code{model} part of a \code{formula} object here 
-    apply to all three parts alike. Typically, \code{A} includes at least the 
-    constant \code{1} to specify a model with intercepts; unlike 
-    \code{\link[stats]{lm}}, the function never adds this automatically.
-    \emph{Simplified syntax} (see Note): This is in effect if \code{data} is 
-    given without the full parameter name (\code{data = }...) and means 
-    all symbols and operators except \code{|} and \code{:} have their regular 
-    meaning, with \code{|} used for joining terms (replacing \code{+}) and 
-    \code{:} for multiplying terms, valid anywhere in the expression; a 
-    \code{factor} or character variable is here always represented by its 
-    full set of indicator (dummy) variables, with values of character 
-    variables \link[base:sort]{sorted} by the \code{"radix"} method.
+    explanatory variables that remain under the null hypothesis. Typically 
+    \code{A} includes at least the constant \code{1} to specify a model with 
+    intercepts; unlike \code{\link[stats]{lm}}, the function never adds this 
+    automatically.
+    \itemize{
+      \item{The \link[stats:formula]{operators} and 
+        \link[stats:model.matrix]{expansion} rules defined for the 
+        \code{model} part of a \code{formula} object here apply to all three 
+        parts alike if \code{data} is given with its full parameter name.
+      }
+      \item{\emph{Simplified syntax} (see Note): This is in effect if 
+        \code{data} is given without the full parameter name 
+        (\code{data = }...) and means all symbols and operators except 
+        \code{|} and \code{:} have their regular meaning, with \code{|} used 
+        for joining terms (replacing \code{+}) and \code{:} for multiplying 
+        terms, valid anywhere in the expression. A \code{factor} or character 
+        variable is here always represented by its full set of indicator 
+        (dummy) variables, with values of character variables 
+        \link[base:sort]{sorted} by the \code{"radix"} method.
+      }
+    }
   }
   \item{data}{An optional list (or data frame) or environment containing 
     the variables in the model. Passing this argument without its full name 
@@ -48,10 +55,12 @@
   \item{\dots}{Additional optional arguments passed to 
     \code{\link[stats]{model.frame}}. In particular, \code{subset} specifies 
     which rows of data to include, \code{na.action} how to handle missing 
-    values (ignored with simplified syntax, which always mimics 
-    \code{\link[stats]{na.exclude}}), and \code{weights} is a vector of any 
-    nonnegative numbers that specify how many identical observations each row 
-    represents.
+    values, and \code{weights} is a vector of any nonnegative numbers that 
+    specify how many identical observations each row represents. With the 
+    simplified \code{formula} syntax, only \code{subset} and \code{weights} 
+    are handled, and if \code{weights} is missing or \code{NULL}, rows with 
+    missing values are given weight 0, which has an effect similar to 
+    \code{\link[stats]{na.exclude}}.
   }
   \item{tol}{The tolerance in the QR decomposition for detecting linear 
     dependencies of the matrix columns.
@@ -66,7 +75,7 @@
   \item{estimate}{vector of canonical correlations, i.e., the 
     diagonal elements of \eqn{D}}
   \item{statistic}{vector of p-values based on Pillai’s statistic and 
-    classical chi-squared and F approximations}
+    classical F (beta) and chi-squared (gamma) approximations}
   \item{df.residual}{the number \eqn{r}}
   \item{method}{the name of the function}
   \item{data.name}{a character string representation of \code{formula} 
@@ -150,12 +159,11 @@ rows.
 \note{
 The handling of \code{weights} differs from that in \code{\link[stats]{lm}} 
 unless the nonzero weights are scaled so as to have a mean of 1. Also, to 
-facilitate predictions for rows with zero weights (see Examples and the code 
-marked as optional), the square roots of the weights, used internally for 
-scaling the data, are always computed as nonzero numbers, even for zero 
-weights, where they are so small that their square is still numerically zero 
-and hence without effect on the correlation analysis. An \code{offset}, if 
-included in \code{A} or \code{...}, is subtracted from all columns in 
+facilitate predictions for rows with zero weights (see Examples), the square 
+roots of the weights, used internally for scaling the data, are always 
+computed as nonzero numbers, even for zero weights, where they are so small 
+that their square is still numerically zero and hence without effect on the 
+correlation analysis. An \code{offset} is subtracted from all columns in 
 \code{X} and \code{Y}.
 
 The simplified \code{formula} syntax is intended to provide a simpler, more 
@@ -164,8 +172,8 @@ consistent behavior than the legacy  \code{stats} procedure based on
 \code{\link[stats]{model.matrix}}. Inconsistent or hard-to-predict behavior 
 can result in \code{model.matrix}, in particular, from the special 
 interpretation of common symbols, the identification of variables by deparsed 
-names, the locale-dependent conversion of character variables to factors and 
-the imperfect avoidance of linear dependencies subject to 
+expressions, the locale-dependent conversion of character variables to 
+factors and the imperfect avoidance of linear dependencies subject to 
 \code{options("contrasts")}.
 }
 
@@ -275,7 +283,7 @@ cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
 
 ## Chi-squared test of independence:
 cctest(ori~plot~1, dat, ~0)
-cctest(ori~plot~1, data=xtabs(~ori+plot,dat), ~0, weights=Freq)
+cctest(ori~plot~1, data=xtabs(~ori+plot,dat), df=~0, weights=Freq)
   summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
   chisq.test(dat$ori, dat$plot, correct=FALSE)
 
@@ -312,7 +320,7 @@ with(list(
   #predict(MASS::lda(ori~h+h5+h10,dat))$x[1:7,]
 
 ## Correspondence analysis:
-cctest(ori~plot~1, data=xtabs(~ori+plot,dat), ~0, weights=Freq)[1:2]
+cctest(ori~plot~1, data=xtabs(~ori+plot,dat), df=~0, weights=Freq)[1:2]
   #MASS::corresp(~plot+ori, dat, nf=2)
 
 ## Prediction in multivariate linear model:
@@ -323,29 +331,30 @@ with(list(
 
 \dontrun{
 ## Handling of additional arguments and edge cases:
-cctest(h~h10~0, dat, offset=h5)
+cctest(h~h10~0, data=dat, offset=h5)
+cctest(h-h5~h10-h5~0, dat)
   anova(lm(h~0+offset(h5), dat), lm(h~0+I(h10-h5)+offset(h5), dat))
 cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0]))
-  anova(lm(h~1, dat, weights=sapl),
-    lm(h~1+x, dat, weights=sapl))
+  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(sqrt(h-17)~elev~1, dat=dat[1:5,])[1:2]
 cctest(sqrt(h-17)~elev~1, data=dat[1:5,], na.action=na.exclude)[1:2]
   scale(resid(lm(cbind(elev,sqrt(h-17))~1, dat[1:5,],
     na.action=na.exclude)), FALSE)
-cctest(ori:I(sum(Freq)/Freq)~I(0*Freq)~offset(Freq^0), data=xtabs(~ori,dat),
-    weights=Freq^2/sum(Freq)/c(.4,.1,.2,.3), na.action=na.fail)
+cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
+    weights=Freq^3/Freq/sum(Freq)/c(.4,.1,.2,.3))
   chisq.test(xtabs(~ori,dat), p=c(.4,.1,.2,.3))
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
 cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2)))
+cctest(NULL~NULL~NULL)
+cctest(0~0~0)
+  anova(lm(0~0), lm(0~0+0))
 cctest(1~0~0)
-  anova(lm(1~0),lm(1~0))
-cctest(0~0~0, data=dat, na.action=na.fail)
-cctest(h*0~0~0, dat)
-  NaN
-cctest(h^0~0~1, dat)
-  anova(lm(h^0~1, dat), lm(h^0~0+1, dat))
+  anova(lm(1~0), lm(1~0+0))
+cctest(1~1~0)
+  anova(lm(1~0), lm(1~0+1))
+cctest(1~1~0, data=dat)
 cctest(h^0~1~0, dat)
-  anova(lm(h^0~0, dat), lm(h^0~1, dat))}
+  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}
 }
