@@ -1,4 +1,5 @@
-cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
+cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
+    stats=FALSE) {
   # Define QR decomposition with row reordering and rank computation:
   QR <- function(x,tol,r=0L,o=c(n,n)[r+n]) {n<-seq_len(nrow(x))
     s<-.colSums(x^2,nrow(x),ncol(x)); s[!s]<-1; x<-x*tcrossprod(n>r,1/sqrt(s))
@@ -8,12 +9,46 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
   Q <- function(q,y) {y[q$o,]<-qr.qy(q,y)
     rownames(y)<-NULL; rownames(y)[q$o]<-rownames(q$qr); y}
 
+  # Define function for converting data to numeric matrices with same nrow:
+  matrices <- function(...) {
+    l <- lapply(list(...), function(x) {
+      if (is.null(x))
+        x <- matrix(numeric(0), 1L)
+      if (!is.array(x)) {
+        colnms <- levels(x)
+        if (is.null(colnms) && is.character(x))
+          colnms <- sort.int(unique(x), method="radix")
+        if (!is.null(colnms)) {
+          x <- diag(length(colnms))[match(x,colnms),,drop=FALSE]
+          dimnames(x) <- list(NULL, colnms)
+        } else {
+          x <- matrix(x)
+        }
+      }
+      storage.mode(x) <- "double"
+      x
+    })
+    is.matrix <- vapply(l, is.matrix, NA)
+    nrow <- vapply(l, nrow, 0L)
+    n <- nrow[nrow!=1L][1L]
+    stopifnot(is.matrix, nrow==1L | nrow==n)
+    if (!is.na(n)) for (i in seq_along(l)[nrow==1L])
+      l[[i]] <- l[[i]][rep.int(1L,n),,drop=FALSE]
+    makenms <- vapply(l, function(x) ncol(x)==1L && is.null(dimnames(x)), NA)
+    if (any(makenms)) {
+      expr <- substitute(list(...))[-1L]
+      for (i in seq_along(l)[makenms])
+        dimnames(l[[i]]) <- list(NULL, deparse(expr[[i]], nlines=1L))
+    }
+    l
+  }
+
   # Prepare variables as matrices:
   f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]],
     A=formula[[3L]], A0=df[[length(df)]])
-  cl <- match.call(); cl$df <- cl$tol <- NULL
-  if ("data" %in% names(sys.call())[-1L]) {   # 'stats' formula syntax (using
-    cl$formula <- formula                     #   model.frame, model.matrix)
+  cl <- match.call(); cl$df <- cl$tol <- cl$stats <- NULL
+  if (stats) {   # 'stats' formula syntax (using model.frame, model.matrix)
+    cl$formula <- formula
     cl$formula[[2L]] <- substitute(Y+X+A+A0, f); cl$formula[[3L]] <- NULL
     mf <- {cl[[1L]]<-quote(stats::model.frame); eval.parent(cl)}
     vars <- lapply(f, function(f) do.call(model.matrix,
@@ -21,18 +56,16 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
     if (!is.null(h<-model.offset(mf))) {vars$X<-vars$X-h; vars$Y<-vars$Y-h}
     if (is.null(w<-model.weights(mf))) w <- rep.int(1,nrow(vars$A))
     naadjust <- function(x) naresid(attr(mf,"na.action"), x)
-  } else {                                    # simplified syntax (using
-    cl$formula <- cl$data <- NULL             #   function defined below)
+  } else {       # simplified syntax (using function matrices)
+    cl$formula <- cl$data <- NULL
     env <- new.env(parent=environment(formula))
     assign(envir=env, "|", function(...) do.call(cbind,
       c(deparse.level=0, matrices(...))))
     assign(envir=env, ":", function(...) Reduce(function(x, y) {
       nx <- ncol(x); ny <- ncol(y)
-      z <- x[,rep.int(seq_len(nx),rep.int(ny,nx)),drop=FALSE] *
-        y[,rep.int(seq_len(ny),nx),drop=FALSE]
-      colnames(z) <- paste(sep=":",
-        rep.int(colnames(x),rep.int(ny,nx)), colnames(y))
-      z
+      xe <- x[, rep.int(seq_len(nx),rep.int(ny,nx)), drop=FALSE]
+      ye <- y[, rep.int(seq_len(ny),nx), drop=FALSE]
+      `colnames<-`(xe*ye, paste(sep=":", colnames(xe), colnames(ye)))
     }, matrices(...)))
     vars <- eval(substitute(.(Y=Y,X=X,A=A,A0=A0), c(f,.=matrices)), data, env)
     args <- lapply(cl[-1L], eval, data, parent.frame())
@@ -60,71 +93,34 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7) {
   qx <- QR(X,tol,qa$rank); k <- qx$rank; Qx <- Q(qx,diag(,n,k))
   qy <- QR(Y,tol,qa$rank); l <- qy$rank; Qy <- Q(qy,diag(,n,l))
 
-  # Determine residual degrees of freedom (weights are numbers of trials):
-  r <- sum(w) - QR(vars$A0,tol,,qa$o)$rank
-
   # Compute singular value decomposition of Qx*Qy and new rotated variables:
   SVD <- if (k && l) svd(crossprod(Qx,Qy), k, l) else
     list(d=numeric(), u=diag(k), v=diag(l))
-  x <- Q(qx, rbind(sqrt(r)*SVD$u, matrix(0,n-k,k)))
-  y <- Q(qy, rbind(sqrt(r)*SVD$v, matrix(0,n-l,l)))
+  x <- Q(qx, rbind(SVD$u, matrix(0,n-k,k)))
+  y <- Q(qy, rbind(SVD$v, matrix(0,n-l,l)))
 
   # Check computability for rows with w=0 (optional, with +sqrt0 above):
   dfct <- function(d) .rowSums(abs(d)>tol*z,n,ncol(d)) > 0
   zx[dfct(Q(qa,cbind(qa$d,Q(qx,qx$d))))] <- NaN
   zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
 
+  # Determine residual degrees of freedom (weights are numbers of trials):
+  r <- sum(w) - QR(vars$A0,tol,,qa$o)$rank; s <- sqrt(r)
+
   # Compute results:
-  V <- sum(SVD$d^2)    # Pillai's statistic
-  t <- k*l; u <- c(beta=r*length(SVD$d), gamma=Inf)
+  d <- c(cor=SVD$d); t <- k*l; u <- c(beta=r*length(d), gamma=Inf)
   structure(class="htest", list(
-    x = naadjust(Q(qa,x)/zx),   # new transformed variables
-    y = naadjust(Q(qa,y)/zy),
-    xinv = crossprod(x,X)/r,    # inverse coordinate transformations
-    yinv = crossprod(y,Y)/r,
-    estimate = c(cor=SVD$d),    # canonical correlations (non-negative)
-    statistic = c(`p-value`=    # approximate p-values
-      replace(pf((1/(V*r)-1/u) / (1/t-1/u), u-t, t), !(0<t & t<u), 1)),
-    df.residual = r,            # residual degrees of freedom
+    x = naadjust(Q(qa,x)*(s/zx)),  # new transformed variables
+    y = naadjust(Q(qa,y)*(s/zy)),
+    xinv = (xi<-crossprod(x,X))/s, # inverse coordinate transformations
+    yinv = (yi<-crossprod(y,Y))/s,
+    estimate = {                   # canonical correlations (non-negative)
+      if (t==1L) {p<-crossprod(xi,yi)*d
+        if (all(p>0)) d<-c(pos=d); if (all(p<0)) d<-c(neg=d)}; d},
+    statistic = c(`p-value`=       # approximate p-values
+      replace(pf((1/(sum(d^2)*r)-1/u) / (1/t-1/u), u-t, t), !(0<t & t<u), 1)),
+    df.residual = r,               # residual degrees of freedom
     method = "cctest",
-    data.name = deparse(substitute(formula), nlines=1L)
+    data.name = deparse(formula, nlines=1L)
   ))
-}
-
-matrices <- function(...) {
-  # Transform each variable in ... into numeric matrix:
-  l <- lapply(list(...), function(x) {
-    if (is.null(x))
-      x <- matrix(numeric(0), 1L)
-    if (!is.array(x)) {
-      colnms <- levels(x)
-      if (is.null(colnms) && is.character(x))
-        colnms <- sort.int(unique(x), method="radix")
-      if (!is.null(colnms)) {
-        x <- diag(length(colnms))[match(x,colnms),,drop=FALSE]
-        dimnames(x) <- list(NULL, colnms)
-      } else {
-        x <- matrix(x)
-      }
-    }
-    storage.mode(x) <- "double"
-    x
-  })
-
-  # Create column names from deparsed expressions as needed:
-  makenms <- vapply(l, function(x) ncol(x)==1L && is.null(dimnames(x)), NA)
-  if (any(makenms)) {
-    expr <- substitute(list(...))[-1L]
-    for (i in seq_along(l)[makenms])
-      dimnames(l[[i]]) <- list(NULL, deparse(expr[[i]], nlines=1L))
-  }
-
-  # Validate, expand to matrices with same number of rows and return list:
-  is.matrix <- vapply(l, is.matrix, NA)
-  nrow <- vapply(l, nrow, 0L)
-  n <- nrow[nrow!=1L][1L]
-  stopifnot(is.matrix, nrow==1L | nrow==n)
-  if (!is.na(n)) for (i in seq_along(l)[nrow==1L])
-    l[[i]] <- l[[i]][rep.int(1L,n),,drop=FALSE]
-  l
 }

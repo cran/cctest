@@ -12,7 +12,7 @@
   on Pillai’s statistic.
 }
 \usage{
-  cctest(formula, data = NULL, df = formula[-2L], ..., tol = 1e-07)
+  cctest(formula, data=NULL, df=formula[-2L], ..., tol=1e-07, stats=FALSE)
 }
 \arguments{
   \item{formula}{A \code{\link[stats]{formula}} object of the form 
@@ -24,27 +24,27 @@
     intercepts; unlike \code{\link[stats]{lm}}, the function never adds this 
     automatically.
     \itemize{
-      \item{The \link[stats:formula]{operators} and 
+      \item{If \code{stats} is \code{TRUE}, the variables in \code{formula} 
+        are passed to \code{model.frame} and \code{model.matrix} for 
+        processing. The \link[stats:formula]{operators} and 
         \link[stats:model.matrix]{expansion} rules defined for the 
         \code{model} part of a \code{formula} object here apply to all three 
-        parts alike if \code{data} is given with its full parameter name.
+        parts alike.
       }
-      \item{\emph{Simplified syntax} (see Note): This is in effect if 
-        \code{data} is given without the full parameter name 
-        (\code{data = }...) and means all symbols and operators except 
-        \code{|} and \code{:} have their regular meaning, with \code{|} used 
-        for joining terms (replacing \code{+}) and \code{:} for multiplying 
-        terms, valid anywhere in the expression. A \code{factor} or character 
-        variable is here always represented by its full set of indicator 
-        (dummy) variables, with values of character variables 
-        \link[base:sort]{sorted} by the \code{"radix"} method.
+      \item{\emph{Simplified syntax} (recommended, see Note): This is in 
+        effect if \code{stats} is \code{FALSE} and means all symbols and 
+        operators except \code{|} and \code{:} have their regular meaning, 
+        with \code{|} used for joining terms (instead of \code{+}) and 
+        \code{:} for multiplying terms, valid anywhere in the expression. A 
+        \code{factor} or character variable is here always represented by its 
+        full set of indicator (dummy) variables, with values of character 
+        variables \link[base:sort]{sorted} by the \code{"radix"} method.
       }
     }
   }
   \item{data}{An optional list (or data frame) or environment containing 
-    the variables in the model. Passing this argument without its full name 
-    turns on the simplified \code{formula} syntax. Otherwise it can also be 
-    an object (e.g., \code{table}) for which an 
+    the variables in the model. If \code{stats} is \code{TRUE}, this can also 
+    be an object (e.g., \code{table}) for which an 
     \code{\link[base]{as.data.frame}} method exists.
   }
   \item{df}{An optional \code{\link[stats]{formula}} object of the form 
@@ -52,18 +52,22 @@
     degrees of freedom computation. If not specified, this is the same as 
     \code{A}.
   }
-  \item{\dots}{Additional optional arguments passed to 
-    \code{\link[stats]{model.frame}}. In particular, \code{subset} specifies 
-    which rows of data to include, \code{na.action} how to handle missing 
-    values, and \code{weights} is a vector of any nonnegative numbers that 
-    specify how many identical observations each row represents. With the 
-    simplified \code{formula} syntax, only \code{subset} and \code{weights} 
-    are handled, and if \code{weights} is missing or \code{NULL}, rows with 
-    missing values are given weight 0, which has an effect similar to 
+  \item{\dots}{Additional optional arguments. These are passed to 
+    \code{\link[stats]{model.frame}} if \code{stats} is \code{TRUE}. In 
+    particular, \code{subset} specifies which rows of data to include, 
+    \code{na.action} how to handle missing values, and \code{weights} is a 
+    vector of any nonnegative numbers that specify how many identical 
+    observations each row represents. With the simplified \code{formula} 
+    syntax, only \code{subset} and \code{weights} are handled, and if 
+    \code{weights} is missing or \code{NULL}, rows with missing values are 
+    given weight 0, which has an effect similar to 
     \code{\link[stats]{na.exclude}}.
   }
   \item{tol}{The tolerance in the QR decomposition for detecting linear 
     dependencies of the matrix columns.
+  }
+  \item{stats}{A logical value that determines the interpretation of 
+    \code{formula} (see above).
   }
 }
 \value{
@@ -73,7 +77,8 @@
   \item{xinv, yinv}{matrices \eqn{U} and \eqn{V} representing the inverse 
     coordinate transformations}
   \item{estimate}{vector of canonical correlations, i.e., the 
-    diagonal elements of \eqn{D}}
+    diagonal elements of \eqn{D}, possibly (only if \eqn{k=l=1}) with a name 
+    indicating the direction of the correlation}
   \item{statistic}{vector of p-values based on Pillai’s statistic and 
     classical F (beta) and chi-squared (gamma) approximations}
   \item{df.residual}{the number \eqn{r}}
@@ -139,12 +144,12 @@ in the numerator and denominator representing the degrees of freedom, or
 twice the parameters of the beta distribution.
 
 Pillai’s statistic is the sum of squares of the canonical correlations, which 
-equals, even without the requirement on \eqn{D}, the squared Frobenius norm 
-of that matrix (or trace of \eqn{D^\top D}). Replacing the distribution of 
-that statistic divided by \eqn{s} (i.e., of the mean of squares) with beta or 
-gamma distributions with first or shape parameter \eqn{kl/2} and expectation 
-\eqn{kl/(rs)} leads to the F and chi-squared approximations that the p-values 
-returned by \code{cctest} are based on.
+equals, even without the diagonal requirement on \eqn{D}, the squared 
+Frobenius norm of that matrix (or trace of \eqn{D^\top D}). Replacing the 
+distribution of that statistic divided by \eqn{s} (i.e., of the mean of 
+squares) with beta or gamma distributions with first or shape parameter 
+\eqn{kl/2} and expectation \eqn{kl/(rs)} leads to the F and chi-squared 
+approximations that the p-values returned by \code{cctest} are based on.
 
 The F or beta approximation (Pillai 1954, p. 99, p. 44) is usually used with 
 \eqn{A_{0}=A} and then is exact if \eqn{s=1}. The chi-squared approximation 
@@ -220,18 +225,19 @@ other packages such as \code{CCP} (tests only), \code{MVar}, \code{candisc}
 \examples{
 ## Artificial observations in 5-by-5 meter quadrats in a forest for
 ## comparing cctest analyses with equivalent 'stats' methods:
-set.seed(0)
 dat <- within(data.frame(row.names=1:150), {
-  plot <- sample(factor(c("a","b")), 150, TRUE)         # plot a or b
-  x    <- as.integer(runif(150,1,31) + 81*(plot=="b"))  # x position on grid
-  y    <- as.integer(runif(150,1,31) + 61*(plot=="b"))  # y position on grid
-  ori  <- sample(factor(c("E","N","S","W")), 150, TRUE) # orientation of slope
-  elev <- runif(150,605,645) + 5*(plot=="b")            # elevation (in meters)
-  h    <- rnorm(150, 125-.17*elev, 3.5)                 # tree height (in meters)
-  h5   <- rnorm(150, h, 2)                              # tree height 5 years earlier
-  h10  <- rnorm(150, h5, 2)                             # tree height 10 years earlier
-  c15  <- as.integer(rnorm(150, h10, 2) > 20)           # 0-1 coded, 15 years earlier
-  sapl <- rnbinom(150, 2.6, mu=.02*elev)                # number of saplings
+  u <- function() replicate(150, z<<-(z*69069+2^-32)\%\%1); z<-0
+  plot <- factor(u() < .5, , c("a","b"))        # plot a or b
+  x    <- as.integer(30*u() + c(1,82)[plot])    # x position on grid
+  y    <- as.integer(30*u() + c(1,62)[plot])    # y position on grid
+  ori  <- factor(u()\%/\%.25,,c("E","N","S","W")) # orientation of slope
+  elev <- 40*u() + c(605,610)[plot]             # elevation (in meters)
+  h    <- 115 - .15*elev + 2*log(1/u()-1)       # tree height (in meters)
+  h5   <- h + log(1/u()-1)                      # tree height 5 years earlier
+  h10  <- h5 + log(1/u()-1)                     # tree height 10 years earlier
+  c15  <- as.integer(h10 + log(1/u()-1) > 20)   # 0-1 coded, 15 years earlier
+  sapl <- as.integer(log(1/u())^.8*elev/40)     # number of saplings
+  rm(u, z)
 })
 dat[1:8,]
 
@@ -255,15 +261,15 @@ cctest(h~ori~1, dat)
   anova(lm(h~ori, dat))
 
 ## F-tests in linear models:
-cctest(h~ori~1+elev, data=dat)
 cctest(h~ori~1|elev, dat)
+cctest(h~ori~1+elev, dat, stats=TRUE)
   anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
 cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat, subset=1:50)
   summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):(x+I(x^2)), dat, subset=1:50))
 
 ## Test in multivariate linear model based on Pillai's statistic:
-cctest(h+h5+h10~x+y~1+elev, data=dat)
 cctest(h|h5|h10~x|y~1|elev, dat)
+cctest(h+h5+h10~x+y~1+elev, dat, stats=TRUE)
   anova(lm(cbind(h,h5,h10)~elev, dat),
     lm(cbind(h,h5,h10)~elev+x+y, dat))
 
@@ -279,11 +285,13 @@ cctest(rank(h)~plot~1, dat)
 
 ## Wilcoxon signed rank test:
 cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
+#dat|> within(d<-h-h5)|> subset(d|0)|> with(rank(abs(d))~sign(d)~0)|> cctest()
   wilcox.test(h-h5 ~ 1, dat, exact=FALSE, correct=FALSE)
 
 ## Chi-squared test of independence:
 cctest(ori~plot~1, dat, ~0)
-cctest(ori~plot~1, data=xtabs(~ori+plot,dat), df=~0, weights=Freq)
+cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), df=~0, weights=Freq)
+cctest(ori~plot~1, xtabs(~ori+plot,dat), stats=TRUE, df=~0, weights=Freq)
   summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
   chisq.test(dat$ori, dat$plot, correct=FALSE)
 
@@ -304,7 +312,7 @@ cctest(ori~x|y~1, dat, ~0)
 ## Absolute values of (partial) correlation coefficients:
 cctest(h~elev~1, dat)$est
   cor(dat$h, dat$elev)
-cctest(h~elev~1+x+y, data=dat)$est
+cctest(h~elev~1|x|y, dat)$est
   cov2cor(estVar(lm(cbind(h,elev)~1+x+y, dat)))
 cctest(h~x|y|elev~1, dat)$est^2
   summary(lm(h~1+x+y+elev, dat))$r.squared
@@ -320,7 +328,7 @@ with(list(
   #predict(MASS::lda(ori~h+h5+h10,dat))$x[1:7,]
 
 ## Correspondence analysis:
-cctest(ori~plot~1, data=xtabs(~ori+plot,dat), df=~0, weights=Freq)[1:2]
+cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), ~0, weights=Freq)[1:2]
   #MASS::corresp(~plot+ori, dat, nf=2)
 
 ## Prediction in multivariate linear model:
@@ -331,18 +339,20 @@ with(list(
 
 \dontrun{
 ## Handling of additional arguments and edge cases:
-cctest(h~h10~0, data=dat, offset=h5)
+cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
+  anova(lm(1:150~ori=="E"|ori=="W", dat))
+cctest(h~h10~0, dat, offset=h5, stats=TRUE)
 cctest(h-h5~h10-h5~0, dat)
   anova(lm(h~0+offset(h5), dat), lm(h~0+I(h10-h5)+offset(h5), dat))
 cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0]))
   anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
-cctest(sqrt(h-17)~elev~1, dat=dat[1:5,])[1:2]
-cctest(sqrt(h-17)~elev~1, data=dat[1:5,], na.action=na.exclude)[1:2]
+cctest(sqrt(h-17)~elev~1, dat[1:5,])[1:2]
+cctest(sqrt(h-17)~elev~1, dat[1:5,], stats=TRUE, na.action=na.exclude)[1:2]
   scale(resid(lm(cbind(elev,sqrt(h-17))~1, dat[1:5,],
     na.action=na.exclude)), FALSE)
 cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
-    weights=Freq^3/Freq/sum(Freq)/c(.4,.1,.2,.3))
-  chisq.test(xtabs(~ori,dat), p=c(.4,.1,.2,.3))
+    weights=Freq^3/Freq/sum(Freq)/c(.2,.3,.4,.1))
+  chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
 cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
@@ -354,7 +364,7 @@ cctest(1~0~0)
   anova(lm(1~0), lm(1~0+0))
 cctest(1~1~0)
   anova(lm(1~0), lm(1~0+1))
-cctest(1~1~0, data=dat)
+cctest(1~1~0, dat, stats=TRUE)
 cctest(h^0~1~0, dat)
   anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}
 }
