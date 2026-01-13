@@ -65,7 +65,8 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
       nx <- ncol(x); ny <- ncol(y)
       xe <- x[, rep.int(seq_len(nx),rep.int(ny,nx)), drop=FALSE]
       ye <- y[, rep.int(seq_len(ny),nx), drop=FALSE]
-      `colnames<-`(xe*ye, paste(sep=":", colnames(xe), colnames(ye)))
+      `colnames<-`(replace(xe*ye, !(xe&ye), 0),
+        paste(sep=":", colnames(xe), colnames(ye)))
     }, matrices(...)))
     vars <- eval(substitute(.(Y=Y,X=X,A=A,A0=A0), c(f,.=matrices)), data, env)
     args <- lapply(cl[-1L], eval, data, parent.frame())
@@ -75,7 +76,7 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
       vars <- lapply(vars, `rownames<-`, rownms)
     if (!is.null(ss<-args$subset))
       {vars <- lapply(vars,`[`,ss,,drop=FALSE); w <- w[ss]}
-    naadjust <- function(x) x
+    naadjust <- identity
   }
 
   # Center rotated variables X, Y by removing effects of A:

@@ -34,23 +34,37 @@
       \item{\emph{Simplified syntax} (recommended, see Note): This is in 
         effect if \code{stats} is \code{FALSE} and means all symbols and 
         operators except \code{|} and \code{:} have their regular meaning, 
-        with \code{|} used for joining terms (instead of \code{+}) and 
-        \code{:} for multiplying terms, valid anywhere in the expression. A 
-        \code{factor} or character variable is here always represented by its 
-        full set of indicator (dummy) variables, with values of character 
-        variables \link[base:sort]{sorted} by the \code{"radix"} method.
+        with \code{|} used for joining terms (instead of \code{+}; see 
+        \code{\link[base]{cbind}}) and \code{:} for multiplying terms, valid 
+        anywhere in the expression; the latter differs from \code{*} in that 
+        each combination of columns in the arguments contributes a column to 
+        the result and multiplication by 0 always yields 0, even for missing 
+        values. Single-row arguments in \code{~}, \code{|}, \code{:} are 
+        expanded to objects with identical rows, and every \code{factor} or 
+        character variable is represented by its full set of indicator 
+        (dummy) variables, with values of character variables 
+        \link[base:sort]{sorted} by the \code{"radix"} method.
+        %For example, if \code{x} and \code{y} are vectors with elements 
+        %\code{5,NA,10} and \code{A,A,B}, then \code{(1|x):y} is the matrix 
+        %\code{\tabular{rrrrr}{
+        %      \tab 1:A\tab 1:B\tab x:A\tab x:B\cr
+        %  [1,]\tab   1\tab   0\tab   5\tab   0\cr
+        %  [2,]\tab   1\tab   0\tab  NA\tab   0\cr
+        %  [3,]\tab   0\tab   1\tab   0\tab  10
+        %}}
       }
     }
   }
-  \item{data}{An optional list (or data frame) or environment containing 
-    the variables in the model. If \code{stats} is \code{TRUE}, this can also 
+  \item{data}{An optional list (or data frame) or environment in which the 
+    variables in \code{formula}, \code{df} and \code{...} are first looked 
+    for (prior to lookup in the environment in which \code{~} or 
+    \code{cctest} was invoked). If \code{stats} is \code{TRUE}, this can also 
     be an object (e.g., \code{table}) for which an 
     \code{\link[base]{as.data.frame}} method exists.
   }
   \item{df}{An optional \code{\link[stats]{formula}} object of the form 
-    \code{~ A0}, where \code{A0} is a replacement of \code{A} for the 
-    degrees of freedom computation. If not specified, this is the same as 
-    \code{A}.
+    \code{~ A0}, where \code{A0} is a replacement of \code{A} for the degrees 
+    of freedom computation. If not specified, this is the same as \code{A}.
   }
   \item{\dots}{Additional optional arguments. These are passed to 
     \code{\link[stats]{model.frame}} if \code{stats} is \code{TRUE}. In 
@@ -168,8 +182,8 @@ facilitate predictions for rows with zero weights (see Examples), the square
 roots of the weights, used internally for scaling the data, are always 
 computed as nonzero numbers, even for zero weights, where they are so small 
 that their square is still numerically zero and hence without effect on the 
-correlation analysis. An \code{offset} is subtracted from all columns in 
-\code{X} and \code{Y}.
+correlation analysis. If \code{stats} is \code{TRUE}, an \code{offset} is 
+subtracted from all columns in \code{X} and \code{Y}.
 
 The simplified \code{formula} syntax is intended to provide a simpler, more 
 consistent behavior than the legacy  \code{stats} procedure based on 
@@ -270,8 +284,7 @@ cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat, subset=1:50)
 ## Test in multivariate linear model based on Pillai's statistic:
 cctest(h|h5|h10~x|y~1|elev, dat)
 cctest(h+h5+h10~x+y~1+elev, dat, stats=TRUE)
-  anova(lm(cbind(h,h5,h10)~elev, dat),
-    lm(cbind(h,h5,h10)~elev+x+y, dat))
+  anova(lm(cbind(h,h5,h10)~elev, dat), lm(cbind(h,h5,h10)~elev+x+y, dat))
 
 ## Test based on Spearman's rank correlation coefficient:
 cctest(rank(h)~rank(elev)~1, dat)
@@ -291,7 +304,6 @@ cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
 ## Chi-squared test of independence:
 cctest(ori~plot~1, dat, ~0)
 cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), df=~0, weights=Freq)
-cctest(ori~plot~1, xtabs(~ori+plot,dat), stats=TRUE, df=~0, weights=Freq)
   summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
   chisq.test(dat$ori, dat$plot, correct=FALSE)
 
@@ -302,12 +314,9 @@ cctest(c15~x|y~1, dat, ~0)
 
 ## Score test in multinomial logit model (...~1 only):
 cctest(ori~x|y~1, dat, ~0)
-  with(list(d=dat, e=expand.grid(stringsAsFactors=FALSE,
-    i=row.names(dat), j=levels(dat$ori))
-  ), anova(
-    glm(d[i,"ori"]==j ~ j+d[i,"x"]+d[i,"y"], poisson, e, epsilon=1e-12),
-    glm(d[i,"ori"]==j ~ j*(d[i,"x"]+d[i,"y"]), poisson, e), test="Rao"
-  ))
+  with(expand.grid(stringsAsFactors=FALSE,i=row.names(dat),j=levels(dat$ori)),
+    anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-12),
+      glm(ori==j ~ j*(x+y), poisson, dat[i,]), test="Rao"))
 
 ## Absolute values of (partial) correlation coefficients:
 cctest(h~elev~1, dat)$est
@@ -322,9 +331,7 @@ cctest(h|h5|h10~x|y~1, dat)$est
   cancor(dat[c("x","y")],dat[c("h","h5","h10")])$cor
 
 ## Linear discriminant analysis:
-with(list(
-  cc = cctest(h|h5|h10~ori~1, dat, ~ori)
-), cc$y / sqrt(1-cc$est^2)[col(cc$y)])[1:7,]
+with(cctest(h|h5|h10~ori~1, dat, ~ori), y / sqrt(1-estimate^2)[col(y)])[1:7,]
   #predict(MASS::lda(ori~h+h5+h10,dat))$x[1:7,]
 
 ## Correspondence analysis:
@@ -332,10 +339,20 @@ cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), ~0, weights=Freq)[1:2]
   #MASS::corresp(~plot+ori, dat, nf=2)
 
 ## Prediction in multivariate linear model:
-with(list(
-  cc = cctest(h|h5|h10~1|x|y~0, dat, weights=plot=="a")
-), cc$x \%*\% diag(cc$est,ncol(cc$x),ncol(cc$y)) \%*\% cc$yinv)[1:7,]
+with(cctest(h|h5|h10~1|x|y~0, dat, weights=plot=="a"),
+    x \%*\% diag(estimate,ncol(x),ncol(y)) \%*\% yinv)[1:7,]
   predict(lm(cbind(h,h5,h10)~1+x+y, dat, subset=plot=="a"), dat)[1:7,]
+
+## Other constructions:
+cctest(ave(h,plot,FUN=rank)~ori~plot, aggregate(h~ori+plot,dat,mean))
+  friedman.test(h~ori|plot, aggregate(h~ori+plot,dat,mean))
+cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
+    weights=if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())
+  chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
+with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
+           c(dat,`{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
+    list(estimate/(s<-sqrt((1-estimate^2)*df.residual)), t(xinv*s)))
+  prcomp(~h+h5+h10, dat)
 
 \dontrun{
 ## Handling of additional arguments and edge cases:
@@ -350,9 +367,6 @@ cctest(sqrt(h-17)~elev~1, dat[1:5,])[1:2]
 cctest(sqrt(h-17)~elev~1, dat[1:5,], stats=TRUE, na.action=na.exclude)[1:2]
   scale(resid(lm(cbind(elev,sqrt(h-17))~1, dat[1:5,],
     na.action=na.exclude)), FALSE)
-cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
-    weights=Freq^3/Freq/sum(Freq)/c(.2,.3,.4,.1))
-  chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
 cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
