@@ -1,5 +1,4 @@
-cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
-    stats=FALSE) {
+cctest <- function(formula, data=NULL, df=NULL, ..., tol=1e-7, stats=FALSE) {
   # Define QR decomposition with row reordering and rank computation:
   QR <- function(x,tol,r=0L,o=c(n,n)[r+n]) {n<-seq_len(nrow(x))
     s<-.colSums(x^2,nrow(x),ncol(x)); s[!s]<-1; x<-x*tcrossprod(n>r,1/sqrt(s))
@@ -47,7 +46,7 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
   f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]],
     A=formula[[3L]], A0=df[[length(df)]])
   cl <- match.call(); cl$df <- cl$tol <- cl$stats <- NULL
-  if (stats) {   # 'stats' formula syntax (using model.frame, model.matrix)
+  if (stats) {   # 'stats' formula notation (using model.frame, model.matrix)
     cl$formula <- formula
     cl$formula[[2L]] <- substitute(Y+X+A+A0, f); cl$formula[[3L]] <- NULL
     mf <- {cl[[1L]]<-quote(stats::model.frame); eval.parent(cl)}
@@ -56,7 +55,7 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
     if (!is.null(h<-model.offset(mf))) {vars$X<-vars$X-h; vars$Y<-vars$Y-h}
     if (is.null(w<-model.weights(mf))) w <- rep.int(1,nrow(vars$A))
     naadjust <- function(x) naresid(attr(mf,"na.action"), x)
-  } else {       # simplified syntax (using function matrices)
+  } else {       # simplified notation (using function matrices)
     cl$formula <- cl$data <- NULL
     env <- new.env(parent=environment(formula))
     assign(envir=env, "|", function(...) do.call(cbind,
@@ -106,7 +105,8 @@ cctest <- function(formula, data=NULL, df=formula[-2L], ..., tol=1e-7,
   zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
 
   # Determine residual degrees of freedom (weights are numbers of trials):
-  r <- sum(w) - QR(vars$A0,tol,,qa$o)$rank; s <- sqrt(r)
+  r <- sum(w) - (if (is.null(df)) qa else QR(vars$A0,tol,,qa$o))$rank
+  s <- sqrt(r)
 
   # Compute results:
   d <- c(cor=SVD$d); t <- k*l; u <- c(beta=r*length(d), gamma=Inf)

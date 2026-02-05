@@ -12,7 +12,7 @@
   on Pillai’s statistic.
 }
 \usage{
-  cctest(formula, data=NULL, df=formula[-2L], ..., tol=1e-07, stats=FALSE)
+  cctest(formula, data=NULL, df=NULL, ..., tol=1e-07, stats=FALSE)
 }
 \arguments{
   \item{formula}{A \code{\link[stats]{formula}} object of the form 
@@ -23,65 +23,55 @@
     \code{A} includes at least the constant \code{1} to specify a model with 
     intercepts; unlike \code{\link[stats]{lm}}, the function never adds this 
     automatically.
-    \itemize{
-      \item{If \code{stats} is \code{TRUE}, the variables in \code{formula} 
-        are passed to \code{model.frame} and \code{model.matrix} for 
-        processing. The \link[stats:formula]{operators} and 
-        \link[stats:model.matrix]{expansion} rules defined for the 
-        \code{model} part of a \code{formula} object here apply to all three 
-        parts alike.
-      }
-      \item{\emph{Simplified syntax} (recommended, see Note): This is in 
-        effect if \code{stats} is \code{FALSE} and means all symbols and 
-        operators except \code{|} and \code{:} have their regular meaning, 
-        with \code{|} used for joining terms (instead of \code{+}; see 
-        \code{\link[base]{cbind}}) and \code{:} for multiplying terms, valid 
-        anywhere in the expression; the latter differs from \code{*} in that 
-        each combination of columns in the arguments contributes a column to 
-        the result and multiplication by 0 always yields 0, even for missing 
-        values. Single-row arguments in \code{~}, \code{|}, \code{:} are 
-        expanded to objects with identical rows, and every \code{factor} or 
-        character variable is represented by its full set of indicator 
-        (dummy) variables, with values of character variables 
-        \link[base:sort]{sorted} by the \code{"radix"} method.
-        %For example, if \code{x} and \code{y} are vectors with elements 
-        %\code{5,NA,10} and \code{A,A,B}, then \code{(1|x):y} is the matrix 
-        %\code{\tabular{rrrrr}{
-        %      \tab 1:A\tab 1:B\tab x:A\tab x:B\cr
-        %  [1,]\tab   1\tab   0\tab   5\tab   0\cr
-        %  [2,]\tab   1\tab   0\tab  NA\tab   0\cr
-        %  [3,]\tab   0\tab   1\tab   0\tab  10
-        %}}
-      }
-    }
+
+    If \code{stats} is \code{FALSE} (recommended, see Note), \code{A}, 
+    \code{X}, \code{Y} are specified in a simplified notation where all 
+    symbols and operators except \code{|} and \code{:} have their regular 
+    meaning, with \code{|} used for joining terms (instead of \code{+}; see 
+    \code{\link[base]{cbind}}) and \code{:} for multiplying terms, valid 
+    anywhere in the expression. The latter differs from \code{*} in that each 
+    combination of columns in the arguments contributes a column to the 
+    result and multiplication by 0 always yields 0, even for missing values. 
+    Single-row arguments in \code{~}, \code{|}, \code{:} are expanded to 
+    objects with identical rows, and every \code{factor} or character 
+    variable is represented by its full set of indicator (dummy) variables, 
+    with values of character variables \link[base:sort]{sorted} by the 
+    \code{"radix"} method.
+    %For example, if \code{x} and \code{y} are vectors with elements 
+    %\code{5,NA,10} and \code{A,A,B}, then \code{(1|x):y} is the matrix 
+    %\code{\tabular{rrrrr}{
+    %      \tab 1:A\tab 1:B\tab x:A\tab x:B\cr
+    %  [1,]\tab   1\tab   0\tab   5\tab   0\cr
+    %  [2,]\tab   1\tab   0\tab  NA\tab   0\cr
+    %  [3,]\tab   0\tab   1\tab   0\tab  10
+    %}}
   }
   \item{data}{An optional list (or data frame) or environment in which the 
-    variables in \code{formula}, \code{df} and \code{...} are first looked 
-    for (prior to lookup in the environment in which \code{~} or 
-    \code{cctest} was invoked). If \code{stats} is \code{TRUE}, this can also 
-    be an object (e.g., \code{table}) for which an 
-    \code{\link[base]{as.data.frame}} method exists.
+    variables in \code{formula}, \code{df} and \code{...} are looked for 
+    (prior to lookup in the environment in which \code{~} or \code{cctest} 
+    was invoked).
   }
   \item{df}{An optional \code{\link[stats]{formula}} object of the form 
-    \code{~ A0}, where \code{A0} is a replacement of \code{A} for the degrees 
-    of freedom computation. If not specified, this is the same as \code{A}.
+    \code{~ A0}, where \code{A0} replaces \code{A} for the degrees of freedom 
+    computation. The default value \code{NULL} means both are the same.
   }
-  \item{\dots}{Additional optional arguments. These are passed to 
-    \code{\link[stats]{model.frame}} if \code{stats} is \code{TRUE}. In 
-    particular, \code{subset} specifies which rows of data to include, 
-    \code{na.action} how to handle missing values, and \code{weights} is a 
-    vector of any nonnegative numbers that specify how many identical 
-    observations each row represents. With the simplified \code{formula} 
-    syntax, only \code{subset} and \code{weights} are handled, and if 
-    \code{weights} is missing or \code{NULL}, rows with missing values are 
-    given weight 0, which has an effect similar to 
-    \code{\link[stats]{na.exclude}}.
+  \item{\dots}{Additional optional arguments. In particular, \code{subset} 
+    specifies which rows of data to include and \code{weights} is a vector of 
+    any nonnegative numbers that specify how many identical observations each 
+    row represents. If \code{stats} is \code{FALSE}, only these two are 
+    handled, and in case \code{weights} is missing or \code{NULL}, rows with 
+    missing values are given weight 0.
   }
   \item{tol}{The tolerance in the QR decomposition for detecting linear 
     dependencies of the matrix columns.
   }
-  \item{stats}{A logical value that determines the interpretation of 
-    \code{formula} (see above).
+  \item{stats}{A logical value. If \code{TRUE}, the expressions in 
+    \code{formula}, \code{data}, \code{df} and \code{\dots} are passed to 
+    \code{model.frame} and \code{model.matrix} for processing; the 
+    \link[stats:formula]{operators} and \link[stats:model.matrix]{expansion} 
+    rules defined for the \code{model} part of a \code{formula} object here 
+    apply to all parts. If \code{FALSE}, \code{formula} and \code{df} are 
+    interpreted according to the simplified notation.
   }
 }
 \value{
@@ -91,7 +81,7 @@
   \item{xinv, yinv}{matrices \eqn{U} and \eqn{V} representing the inverse 
     coordinate transformations}
   \item{estimate}{vector of canonical correlations, i.e., the 
-    diagonal elements of \eqn{D}, possibly (only if \eqn{k=l=1}) with a name 
+    diagonal elements of \eqn{D}, possibly (only if \eqn{K=L=1}) with a name 
     indicating the direction of the correlation}
   \item{statistic}{vector of p-values based on Pillai’s statistic and 
     classical F (beta) and chi-squared (gamma) approximations}
@@ -110,16 +100,16 @@ rank-sum and signed rank tests, chi-squared tests of independence, score
 tests of particular hypotheses in generalized linear models, canonical 
 correlation analysis and linear discriminant analysis (see Examples).
 
-Specifically, for the matrices with ranks \eqn{k} and \eqn{l} obtained from 
+Specifically, for the matrices with ranks \eqn{K} and \eqn{L} obtained from 
 \eqn{X} and \eqn{Y} by subtracting from each column its orthogonal projection 
 on the column space of \eqn{A}, the function computes factorizations 
 \eqn{\tilde{X}U} and \eqn{\tilde{Y}V} with \eqn{\tilde{X}} and 
-\eqn{\tilde{Y}} having \eqn{k} and \eqn{l} columns, respectively, such that 
+\eqn{\tilde{Y}} having \eqn{K} and \eqn{L} columns, respectively, such that 
 both \eqn{\tilde{X}^\top \tilde{X}=rI} and \eqn{\tilde{Y}^\top \tilde{Y}=rI}, 
-and \eqn{\tilde{X}^\top \tilde{Y}=rD} is a rectangular diagonal matrix with 
-decreasing diagonal elements. The scaling factor \eqn{r}, which should be 
-nonzero, is the dimension of the orthogonal complement of the column space of 
-\eqn{A_{0}}.
+and \eqn{\tilde{X}^\top \tilde{Y}=rD} is zero except for nonnegative elements 
+on its main diagonal arranged in decreasing order. The scaling factor 
+\eqn{r}, which should be nonzero, is the dimension of the orthogonal 
+complement of the column space of \eqn{A_{0}}.
 
 The function realizes this variant of the singular value decomposition by 
 first computing preliminary QR factorizations of the stated form (taking 
@@ -130,43 +120,43 @@ space of \eqn{A} aligns with the coordinate axes. The basic approach and the
 rank detection algorithm are inspired by the implementations in 
 \code{\link[stats]{cancor}} and in \code{\link[stats]{lm}}, respectively.
 
-The diagonal elements of \eqn{D}, or singular values, are the estimated 
-\emph{canonical correlations} (Hotelling 1936) of the variables 
-represented by \eqn{X} and \eqn{Y} if these follow a linear model 
+The main diagonal elements of \eqn{D}, or singular values, are the estimated 
+\dfn{canonical correlations} (Hotelling, 1936) of the variables represented 
+by \eqn{X} and \eqn{Y} if these follow a linear model 
 \eqn{(X\;\;Y)=A(\alpha\;\;\beta)+(\delta\;\;\epsilon)} with known \eqn{A}, 
 unknown \eqn{(\alpha\;\;\beta)} and error terms \eqn{(\delta\;\;\epsilon)} 
 that have uncorrelated rows with expectation zero and an identical unknown 
 covariance matrix. In the most common case, where \code{A} is given as a 
 constant \code{1}, these are the sample canonical correlations (i.e., based 
 on simple centering) most often presented in the literature for full column 
-ranks \eqn{k} and \eqn{l}. They are always decreasing and between 0 and 1.
+ranks \eqn{K} and \eqn{L}. They are always decreasing and between 0 and 1.
 
 In the case of the linear model with independent normally distributed rows 
-and \eqn{A_{0}=A}, the ranks \eqn{k} and \eqn{l} equal, with probability 1, 
+and \eqn{A_{0}=A}, the ranks \eqn{K} and \eqn{L} equal, with probability 1, 
 the ranks of the covariance matrices of the rows of \eqn{X} and \eqn{Y}, 
 respectively, or \eqn{r}, whichever is smaller. Under the hypothesis of 
 independence of \eqn{X} and \eqn{Y}, given those ranks, the joint 
-distribution of the \eqn{s} squared singular values, where \eqn{s} is the 
-smaller of the two ranks, is then known and in the case \eqn{r\geq k+l} has a 
-probability density (Hsu 1939, Anderson 2003, Anderson 2007) given by
-\deqn{\rho (t_{1},...,t_{s})\propto \prod _{i=1}^{s}t_{i}^{(\left|k-l
-\right|-1)/2}(1-t_{i})^{(r-k-l-1)/2}\prod _{i<j}(t_{i}-t_{j}),} 
-\eqn{1\geq t_{1}\geq \cdots \geq t_{s}\geq 0}. For \eqn{s=1} this reduces to 
+distribution of the \eqn{J} squared singular values, where \eqn{J} is the 
+smaller of the two ranks, is then known and in the case \eqn{r\geq K+L} has a 
+probability density (Hsu, 1939, Anderson, 2003, Anderson, 2007) given by
+\deqn{\rho (t_{1},...,t_{J})\propto \prod _{j=1}^{J}t_{j}^{(\left|K-L
+\right|-1)/2}(1-t_{j})^{(r-K-L-1)/2}\prod _{j'>j}(t_{j}-t_{j'}),} 
+\eqn{1\geq t_{1}\geq \cdots \geq t_{J}\geq 0}. For \eqn{J=1} this reduces to 
 the well-known case of a single beta distributed \eqn{R^{2}} or equivalently 
-an F distributed \eqn{R^{2}/(kl) \over (1-R^{2})/(r-kl)}, with the divisors 
+an F distributed \eqn{R^{2}/(KL) \over (1-R^{2})/(r-KL)}, with the divisors 
 in the numerator and denominator representing the degrees of freedom, or 
 twice the parameters of the beta distribution.
 
 Pillai’s statistic is the sum of squares of the canonical correlations, which 
 equals, even without the diagonal requirement on \eqn{D}, the squared 
 Frobenius norm of that matrix (or trace of \eqn{D^\top D}). Replacing the 
-distribution of that statistic divided by \eqn{s} (i.e., of the mean of 
+distribution of that statistic divided by \eqn{J} (i.e., of the mean of 
 squares) with beta or gamma distributions with first or shape parameter 
-\eqn{kl/2} and expectation \eqn{kl/(rs)} leads to the F and chi-squared 
+\eqn{KL/2} and expectation \eqn{KL/(rJ)} leads to the F and chi-squared 
 approximations that the p-values returned by \code{cctest} are based on.
 
-The F or beta approximation (Pillai 1954, p. 99, p. 44) is usually used with 
-\eqn{A_{0}=A} and then is exact if \eqn{s=1}. The chi-squared approximation 
+The F or beta approximation (Pillai, 1954, p. 99, p. 44) is usually used with 
+\eqn{A_{0}=A} and then is exact if \eqn{J=1}. The chi-squared approximation 
 represents Rao’s (1948) score test (with a test statistic that is \eqn{r} 
 times Pillai’s statistic) in the model obtained after removing (or 
 conditioning on) the orthogonal projections on the column space of 
@@ -182,18 +172,21 @@ facilitate predictions for rows with zero weights (see Examples), the square
 roots of the weights, used internally for scaling the data, are always 
 computed as nonzero numbers, even for zero weights, where they are so small 
 that their square is still numerically zero and hence without effect on the 
-correlation analysis. If \code{stats} is \code{TRUE}, an \code{offset} is 
-subtracted from all columns in \code{X} and \code{Y}.
+correlation analysis.
 
-The simplified \code{formula} syntax is intended to provide a simpler, more 
+The simplified \code{formula} notation is intended to provide a simpler, more 
 consistent behavior than the legacy  \code{stats} procedure based on 
 \code{\link[stats]{terms.formula}}, \code{\link[stats]{model.frame}} and 
 \code{\link[stats]{model.matrix}}. Inconsistent or hard-to-predict behavior 
 can result in \code{model.matrix}, in particular, from the special 
 interpretation of common symbols, the identification of variables by deparsed 
 expressions, the locale-dependent conversion of character variables to 
-factors and the imperfect avoidance of linear dependencies subject to 
+factors and the attempts at reducing linear dependencies subject to 
 \code{options("contrasts")}.
+
+For the classical rank tests shown in the Examples, \code{data} must be 
+passed to \code{cctest} with subsetting and removal of missing values done 
+beforehand.
 }
 
 \references{
@@ -237,7 +230,7 @@ other packages such as \code{CCP} (tests only), \code{MVar}, \code{candisc}
 }
 
 \examples{
-## Artificial observations in 5-by-5 meter quadrats in a forest for
+## Artificial observations in 5-by-5 meter subplots in a forest for
 ## comparing cctest analyses with equivalent 'stats' methods:
 dat <- within(data.frame(row.names=1:150), {
   u <- function() replicate(150, z<<-(z*69069+2^-32)\%\%1); z<-0
@@ -253,7 +246,8 @@ dat <- within(data.frame(row.names=1:150), {
   sapl <- as.integer(log(1/u())^.8*elev/40)     # number of saplings
   rm(u, z)
 })
-dat[1:8,]
+\dontrun{
+dat
 
 ## t-tests:
 cctest(h~plot~1, dat)
@@ -273,17 +267,16 @@ cctest(h~elev~1, dat)
 ## One-way analysis of variance:
 cctest(h~ori~1, dat)
   anova(lm(h~ori, dat))
+  oneway.test(h~ori, dat, var.equal=TRUE)
 
 ## F-tests in linear models:
 cctest(h~ori~1|elev, dat)
-cctest(h~ori~1+elev, dat, stats=TRUE)
   anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
 cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat, subset=1:50)
   summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):(x+I(x^2)), dat, subset=1:50))
 
 ## Test in multivariate linear model based on Pillai's statistic:
 cctest(h|h5|h10~x|y~1|elev, dat)
-cctest(h+h5+h10~x+y~1+elev, dat, stats=TRUE)
   anova(lm(cbind(h,h5,h10)~elev, dat), lm(cbind(h,h5,h10)~elev+x+y, dat))
 
 ## Test based on Spearman's rank correlation coefficient:
@@ -346,27 +339,35 @@ with(cctest(h|h5|h10~1|x|y~0, dat, weights=plot=="a"),
 ## Other constructions:
 cctest(ave(h,plot,FUN=rank)~ori~plot, aggregate(h~ori+plot,dat,mean))
   friedman.test(h~ori|plot, aggregate(h~ori+plot,dat,mean))
+cctest(ori:cut(elev,4)-cut(elev,4):ori~1~0, dat)
+  mcnemar.test(dat$ori, cut(dat$elev,4), correct=FALSE)
+cctest(ave(abs(rank(h,ties.method="f")-mean(rank(h))),h)~plot~1, dat)
+  ansari.test(h~plot, dat, exact=FALSE)
+cctest(ave((rank(h,ties.method="f")-mean(rank(h)))^2,h)~plot~1, dat)
+  mood.test(h~plot, dat)
+cctest(qnorm(rank(-abs(h-ave(h,ori,FUN=median)))/(length(h)+1)/2)~ori~1, dat)
+  fligner.test(h~ori, dat)
+cctest(h~diag(plot=="a",length(plot))~plot, dat)
+  var.test(h~plot, dat, alternative="greater")
 cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
     weights=if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())
   chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
-           c(dat,`{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
+           c(dat,`\{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
     list(estimate/(s<-sqrt((1-estimate^2)*df.residual)), t(xinv*s)))
   prcomp(~h+h5+h10, dat)
 
-\dontrun{
 ## Handling of additional arguments and edge cases:
 cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
   anova(lm(1:150~ori=="E"|ori=="W", dat))
-cctest(h~h10~0, dat, offset=h5, stats=TRUE)
-cctest(h-h5~h10-h5~0, dat)
-  anova(lm(h~0+offset(h5), dat), lm(h~0+I(h10-h5)+offset(h5), dat))
+cctest(h-h5~h10-h5~1|x|y, dat)
+cctest(h~h10~1+x+y, dat, offset=h5, stats=TRUE)
+  anova(lm(h~x+y+offset(h5), dat), lm(h~x+y+I(h10-h5)+offset(h5), dat))
+cctest(h*c15/c15~elev~1, dat[1:6,])[1:2]
+cctest(I(h*c15/c15)~elev~1, dat[1:6,], stats=TRUE, na.action=na.exclude)[1:2]
+  scale(with(dat[1:6,], cbind(elev,h)*c15/c15))
 cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0]))
   anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
-cctest(sqrt(h-17)~elev~1, dat[1:5,])[1:2]
-cctest(sqrt(h-17)~elev~1, dat[1:5,], stats=TRUE, na.action=na.exclude)[1:2]
-  scale(resid(lm(cbind(elev,sqrt(h-17))~1, dat[1:5,],
-    na.action=na.exclude)), FALSE)
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
 cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
@@ -380,5 +381,4 @@ cctest(1~1~0)
   anova(lm(1~0), lm(1~0+1))
 cctest(1~1~0, dat, stats=TRUE)
 cctest(h^0~1~0, dat)
-  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}
-}
+  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}}
