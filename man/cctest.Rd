@@ -12,17 +12,16 @@
   on Pillai’s statistic.
 }
 \usage{
-  cctest(formula, data=NULL, df=NULL, ..., tol=1e-07, stats=FALSE)
+  cctest(formula, data=NULL, weights=NULL, ..., tol=1e-07, stats=FALSE)
 }
 \arguments{
-  \item{formula}{A \code{\link[stats]{formula}} object of the form 
-    \code{Y ~ X ~ A}, where \code{Y} represents dependent variables, \code{X} 
-    represents a second set of dependent variables or explanatory variables 
-    not present under the null hypothesis, and \code{A} represents 
-    explanatory variables that remain under the null hypothesis. Typically 
-    \code{A} includes at least the constant \code{1} to specify a model with 
-    intercepts; unlike \code{\link[stats]{lm}}, the function never adds this 
-    automatically.
+  \item{formula}{An object of the form \code{Y ~ X ~ A}, where \code{Y} 
+    represents dependent variables, \code{X} represents a second set of 
+    dependent variables or explanatory variables not present under the null 
+    hypothesis, and \code{A} represents explanatory variables that remain 
+    under the null hypothesis. Typically \code{A} includes at least the 
+    constant \code{1} to specify a model with intercepts; unlike 
+    \code{\link[stats]{lm}}, the function never adds this automatically.
 
     If \code{stats} is \code{FALSE} (recommended, see Note), \code{A}, 
     \code{X}, \code{Y} are specified in a simplified notation where all 
@@ -47,31 +46,31 @@
     %}}
   }
   \item{data}{An optional list (or data frame) or environment in which the 
-    variables in \code{formula}, \code{df} and \code{...} are looked for 
-    (prior to lookup in the environment in which \code{~} or \code{cctest} 
-    was invoked).
+    variables in \code{formula}, \code{weights} and \code{...} are looked for 
+    (prior to lookup in the environment in which \code{\link[base]{~}} 
+    or \code{cctest} was invoked).
   }
-  \item{df}{An optional \code{\link[stats]{formula}} object of the form 
-    \code{~ A0}, where \code{A0} replaces \code{A} for the degrees of freedom 
-    computation. The default value \code{NULL} means both are the same.
+  \item{weights}{An optional object of the form \code{~ A0} or \code{W ~ A0}, 
+    where \code{A0} replaces \code{A} for the degrees of freedom computation. 
+    The default means both are the same. The weights vector \code{W} consists 
+    of any nonnegative numbers, equal to 1 by default, that specify how many 
+    identical observations each row represents. For rows of data with missing 
+    values these numbers are internally replaced with 0, and rows with 
+    missing weights are removed.
   }
-  \item{\dots}{Additional optional arguments. In particular, \code{subset} 
-    specifies which rows of data to include and \code{weights} is a vector of 
-    any nonnegative numbers that specify how many identical observations each 
-    row represents. If \code{stats} is \code{FALSE}, only these two are 
-    handled, and in case \code{weights} is missing or \code{NULL}, rows with 
-    missing values are given weight 0.
+  \item{\dots}{Additional optional arguments in the case that \code{stats} is 
+    \code{TRUE}.
   }
   \item{tol}{The tolerance in the QR decomposition for detecting linear 
     dependencies of the matrix columns.
   }
   \item{stats}{A logical value. If \code{TRUE}, the expressions in 
-    \code{formula}, \code{data}, \code{df} and \code{\dots} are passed to 
-    \code{model.frame} and \code{model.matrix} for processing; the 
+    \code{formula}, \code{data}, \code{weights} and \code{\dots} are passed 
+    to \code{model.frame} and \code{model.matrix} for processing; the 
     \link[stats:formula]{operators} and \link[stats:model.matrix]{expansion} 
     rules defined for the \code{model} part of a \code{formula} object here 
-    apply to all parts. If \code{FALSE}, \code{formula} and \code{df} are 
-    interpreted according to the simplified notation.
+    apply to all parts. If \code{FALSE}, \code{formula} and \code{weights} 
+    are interpreted according to the simplified notation.
   }
 }
 \value{
@@ -166,7 +165,7 @@ rows.
 }
 
 \note{
-The handling of \code{weights} differs from that in \code{\link[stats]{lm}} 
+The handling of the weights differs from that in \code{\link[stats]{lm}} 
 unless the nonzero weights are scaled so as to have a mean of 1. Also, to 
 facilitate predictions for rows with zero weights (see Examples), the square 
 roots of the weights, used internally for scaling the data, are always 
@@ -182,7 +181,9 @@ can result in \code{model.matrix}, in particular, from the special
 interpretation of common symbols, the identification of variables by deparsed 
 expressions, the locale-dependent conversion of character variables to 
 factors and the attempts at reducing linear dependencies subject to 
-\code{options("contrasts")}.
+\code{options("contrasts")}. The \code{stats} procedure and the behavior of a 
+\code{subset} argument, which is currently also processed if \code{stats} is 
+\code{FALSE}, may be removed or altered in the future.
 
 For the classical rank tests shown in the Examples, \code{data} must be 
 passed to \code{cctest} with subsetting and removal of missing values done 
@@ -272,8 +273,8 @@ cctest(h~ori~1, dat)
 ## F-tests in linear models:
 cctest(h~ori~1|elev, dat)
   anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
-cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat, subset=1:50)
-  summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):(x+I(x^2)), dat, subset=1:50))
+cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat)
+  summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):(x+I(x^2)), dat))
 
 ## Test in multivariate linear model based on Pillai's statistic:
 cctest(h|h5|h10~x|y~1|elev, dat)
@@ -296,19 +297,19 @@ cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
 
 ## Chi-squared test of independence:
 cctest(ori~plot~1, dat, ~0)
-cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), df=~0, weights=Freq)
+cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), Freq~0)
   summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
   chisq.test(dat$ori, dat$plot, correct=FALSE)
 
 ## Score test in logistic regression (logit model, ...~1 only):
 cctest(c15~x|y~1, dat, ~0)
-  anova(glm(c15~1, binomial, dat, epsilon=1e-12),
+  anova(glm(c15~1, binomial, dat, epsilon=1e-20, maxit=200),
     glm(c15~1+x+y, binomial, dat), test="Rao")
 
 ## Score test in multinomial logit model (...~1 only):
 cctest(ori~x|y~1, dat, ~0)
   with(expand.grid(stringsAsFactors=FALSE,i=row.names(dat),j=levels(dat$ori)),
-    anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-12),
+    anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-20, maxit=200),
       glm(ori==j ~ j*(x+y), poisson, dat[i,]), test="Rao"))
 
 ## Absolute values of (partial) correlation coefficients:
@@ -328,11 +329,11 @@ with(cctest(h|h5|h10~ori~1, dat, ~ori), y / sqrt(1-estimate^2)[col(y)])[1:7,]
   #predict(MASS::lda(ori~h+h5+h10,dat))$x[1:7,]
 
 ## Correspondence analysis:
-cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), ~0, weights=Freq)[1:2]
-  #MASS::corresp(~plot+ori, dat, nf=2)
+cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), Freq~0)[1:2]
+  #MASS::corresp(~plot+ori, dat)
 
 ## Prediction in multivariate linear model:
-with(cctest(h|h5|h10~1|x|y~0, dat, weights=plot=="a"),
+with(cctest(h|h5|h10~1|x|y~0, dat, plot=="a"~0),
     x \%*\% diag(estimate,ncol(x),ncol(y)) \%*\% yinv)[1:7,]
   predict(lm(cbind(h,h5,h10)~1+x+y, dat, subset=plot=="a"), dat)[1:7,]
 
@@ -350,7 +351,7 @@ cctest(qnorm(rank(-abs(h-ave(h,ori,FUN=median)))/(length(h)+1)/2)~ori~1, dat)
 cctest(h~diag(plot=="a",length(plot))~plot, dat)
   var.test(h~plot, dat, alternative="greater")
 cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
-    weights=if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())
+    (if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())~0)
   chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
            c(dat,`\{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
@@ -360,13 +361,13 @@ with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
 ## Handling of additional arguments and edge cases:
 cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
   anova(lm(1:150~ori=="E"|ori=="W", dat))
-cctest(h-h5~h10-h5~1|x|y, dat)
-cctest(h~h10~1+x+y, dat, offset=h5, stats=TRUE)
-  anova(lm(h~x+y+offset(h5), dat), lm(h~x+y+I(h10-h5)+offset(h5), dat))
+cctest(h-h5~h10-h5~1|x|y, dat, subset=1:50)
+cctest(h~h10~1+x+y, dat, offset=h5, subset=1:50, stats=TRUE)
+  anova(lm(h-h5~x+y, dat, 1:50), lm(h-h5~x+y+I(h10-h5), dat, 1:50))
 cctest(h*c15/c15~elev~1, dat[1:6,])[1:2]
 cctest(I(h*c15/c15)~elev~1, dat[1:6,], stats=TRUE, na.action=na.exclude)[1:2]
   scale(with(dat[1:6,], cbind(elev,h)*c15/c15))
-cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0]))
+cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
   anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))

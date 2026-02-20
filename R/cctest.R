@@ -1,12 +1,24 @@
-cctest <- function(formula, data=NULL, df=NULL, ..., tol=1e-7, stats=FALSE) {
+cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
+  stats=FALSE) {
+
   # Define QR decomposition with row reordering and rank computation:
-  QR <- function(x,tol,r=0L,o=c(n,n)[r+n]) {n<-seq_len(nrow(x))
-    s<-.colSums(x^2,nrow(x),ncol(x)); s[!s]<-1; x<-x*tcrossprod(n>r,1/sqrt(s))
-    q<-qr(x[o,,drop=FALSE],LAPACK=TRUE); t<-abs(diag(q$qr))>tol
-    q$rank<-sum(t); q$qr<-q$qr[,t,drop=FALSE]; q$qraux<-q$qraux[t]
-    q$o<-o; q$d<-qr.qty(q,x[o,q$pivot[!t],drop=FALSE])*(n>q$rank); q}
-  Q <- function(q,y) {y[q$o,]<-qr.qy(q,y)
-    rownames(y)<-NULL; rownames(y)[q$o]<-rownames(q$qr); y}
+  QR <- function(x, tol, r=0L, o=c(n,n)[r+n]) {
+    n <- seq_len(nrow(x))
+    s <- .colSums(x^2, nrow(x), ncol(x)); stopifnot(is.finite(s))
+    s[!s] <- 1
+    x <- x * tcrossprod(n>r, 1/sqrt(s))
+    q <- qr(x[o,,drop=FALSE], LAPACK=TRUE)
+    t <- abs(diag(q$qr)) > tol
+    q$rank <- sum(t)
+    q$qr <- q$qr[,t,drop=FALSE]; q$qraux <- q$qraux[t]
+    q$o <- o; q$d <- qr.qty(q,x[o,q$pivot[!t],drop=FALSE]) * (n>q$rank)
+    q
+  }
+  Q <- function(q, y) {
+    y[q$o,] <- qr.qy(q,y)
+    rownames(y) <- NULL; rownames(y)[q$o] <- rownames(q$qr)
+    y
+  }
 
   # Define function for converting data to numeric matrices with same nrow:
   matrices <- function(...) {
@@ -43,17 +55,16 @@ cctest <- function(formula, data=NULL, df=NULL, ..., tol=1e-7, stats=FALSE) {
   }
 
   # Prepare variables as matrices:
-  f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]],
-    A=formula[[3L]], A0=df[[length(df)]])
-  cl <- match.call(); cl$df <- cl$tol <- cl$stats <- NULL
+  f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]], A=formula[[3L]],
+    W=if(length(weights)>2L) weights[[2L]], A0=weights[[length(weights)]])
+  cl <- match.call(); cl$weights <- cl$tol <- cl$stats <- NULL
   if (stats) {   # 'stats' formula notation (using model.frame, model.matrix)
     cl$formula <- formula
-    cl$formula[[2L]] <- substitute(Y+X+A+A0, f); cl$formula[[3L]] <- NULL
+    cl$formula[[2L]] <- substitute(Y+X+A+W+A0, f); cl$formula[[3L]] <- NULL
     mf <- {cl[[1L]]<-quote(stats::model.frame); eval.parent(cl)}
     vars <- lapply(f, function(f) do.call(model.matrix,
       list(substitute(~0+f,list(f=f)), mf),,parent.frame(3)))
     if (!is.null(h<-model.offset(mf))) {vars$X<-vars$X-h; vars$Y<-vars$Y-h}
-    if (is.null(w<-model.weights(mf))) w <- rep.int(1,nrow(vars$A))
     naadjust <- function(x) naresid(attr(mf,"na.action"), x)
   } else {       # simplified notation (using function matrices)
     cl$formula <- cl$data <- NULL
@@ -67,16 +78,19 @@ cctest <- function(formula, data=NULL, df=NULL, ..., tol=1e-7, stats=FALSE) {
       `colnames<-`(replace(xe*ye, !(xe&ye), 0),
         paste(sep=":", colnames(xe), colnames(ye)))
     }, matrices(...)))
-    vars <- eval(substitute(.(Y=Y,X=X,A=A,A0=A0), c(f,.=matrices)), data, env)
+    vars <- eval(substitute(.(Y=Y,X=X,A=A,W=W,A0=A0), c(f,.=matrices)),
+      data, env)
     args <- lapply(cl[-1L], eval, data, parent.frame())
-    w <- as.numeric(do.call(complete.cases, vars))
-    if (!is.null(wts<-args$weights)) w[] <- wts
-    if (!is.null(rownms<-row.names(data)) && length(rownms)==length(w))
+    if (!is.null(rownms<-row.names(data)) && length(rownms)==nrow(vars$W))
       vars <- lapply(vars, `rownames<-`, rownms)
-    if (!is.null(ss<-args$subset))
-      {vars <- lapply(vars,`[`,ss,,drop=FALSE); w <- w[ss]}
+    if (!is.null(ss<-args$subset)) vars <- lapply(vars,`[`,ss,,drop=FALSE)
     naadjust <- identity
   }
+  w <- .rowSums(vars$W, nrow(vars$W), ncol(vars$W), TRUE) + is.null(f$W)
+  ss <- w | complete.cases(vars$W)
+  vars$W <- NULL
+  if (!all(ss)) {vars <- lapply(vars,`[`,ss,,drop=FALSE); w <- w[ss]}
+  w[!do.call(complete.cases, vars)] <- 0
 
   # Center rotated variables X, Y by removing effects of A:
   z <- sqrt(w) + (sqrt0<-.Machine$double.xmin^.75); stopifnot(sqrt0^2==0)
@@ -105,7 +119,7 @@ cctest <- function(formula, data=NULL, df=NULL, ..., tol=1e-7, stats=FALSE) {
   zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
 
   # Determine residual degrees of freedom (weights are numbers of trials):
-  r <- sum(w) - (if (is.null(df)) qa else QR(vars$A0,tol,,qa$o))$rank
+  r <- sum(w) - (if (is.null(weights)) qa else QR(vars$A0,tol,,qa$o))$rank
   s <- sqrt(r)
 
   # Compute results:
