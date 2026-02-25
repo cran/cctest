@@ -11,11 +11,11 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
     t <- abs(diag(q$qr)) > tol
     q$rank <- sum(t)
     q$qr <- q$qr[,t,drop=FALSE]; q$qraux <- q$qraux[t]
-    q$o <- o; q$d <- qr.qty(q,x[o,q$pivot[!t],drop=FALSE]) * (n>q$rank)
+    q$o <- o; q$d <- qr.qty(q, x[o,q$pivot[!t],drop=FALSE]) * (n>q$rank)
     q
   }
   Q <- function(q, y) {
-    y[q$o,] <- qr.qy(q,y)
+    y[q$o,] <- qr.qy(q, y)
     rownames(y) <- NULL; rownames(y)[q$o] <- rownames(q$qr)
     y
   }
@@ -24,7 +24,7 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
   matrices <- function(...) {
     l <- lapply(list(...), function(x) {
       if (is.null(x))
-        x <- matrix(numeric(0), 1L)
+        x <- matrix(numeric(), 1L)
       if (!is.array(x)) {
         colnms <- levels(x)
         if (is.null(colnms) && is.character(x))
@@ -47,7 +47,7 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
       l[[i]] <- l[[i]][rep.int(1L,n),,drop=FALSE]
     makenms <- vapply(l, function(x) ncol(x)==1L && is.null(dimnames(x)), NA)
     if (any(makenms)) {
-      expr <- substitute(list(...))[-1L]
+      expr <- substitute(.(...))[-1L]
       for (i in seq_along(l)[makenms])
         dimnames(l[[i]]) <- list(NULL, deparse(expr[[i]], nlines=1L))
     }
@@ -56,51 +56,42 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
 
   # Prepare variables as matrices:
   f <- list(Y=formula[[2L]][[2L]], X=formula[[2L]][[3L]], A=formula[[3L]],
-    W=if(length(weights)>2L) weights[[2L]], A0=weights[[length(weights)]])
-  cl <- match.call(); cl$weights <- cl$tol <- cl$stats <- NULL
+    W=if((m<-length(weights))>2L) weights[[2L]] else 1, A0=weights[[m]])
   if (stats) {   # 'stats' formula notation (using model.frame, model.matrix)
-    cl$formula <- formula
-    cl$formula[[2L]] <- substitute(Y+X+A+W+A0, f); cl$formula[[3L]] <- NULL
-    mf <- {cl[[1L]]<-quote(stats::model.frame); eval.parent(cl)}
-    vars <- lapply(f, function(f) do.call(model.matrix,
-      list(substitute(~0+f,list(f=f)), mf),,parent.frame(3)))
+    fm <- formula; fm[[2L]] <- substitute(Y+X+A+W+A0, f); fm[[3L]] <- NULL
+    mf <- model.frame(formula=fm, data=data, ...)
+    vars <- lapply(f, function(f) {
+      fm[[2L]] <- substitute(0+f, list(f=f)); model.matrix(fm, mf)})
     if (!is.null(h<-model.offset(mf))) {vars$X<-vars$X-h; vars$Y<-vars$Y-h}
     naadjust <- function(x) naresid(attr(mf,"na.action"), x)
   } else {       # simplified notation (using function matrices)
-    cl$formula <- cl$data <- NULL
-    env <- new.env(parent=environment(formula))
-    assign(envir=env, "|", function(...) do.call(cbind,
-      c(deparse.level=0, matrices(...))))
-    assign(envir=env, ":", function(...) Reduce(function(x, y) {
-      nx <- ncol(x); ny <- ncol(y)
-      xe <- x[, rep.int(seq_len(nx),rep.int(ny,nx)), drop=FALSE]
-      ye <- y[, rep.int(seq_len(ny),nx), drop=FALSE]
-      `colnames<-`(replace(xe*ye, !(xe&ye), 0),
-        paste(sep=":", colnames(xe), colnames(ye)))
-    }, matrices(...)))
-    vars <- eval(substitute(.(Y=Y,X=X,A=A,W=W,A0=A0), c(f,.=matrices)),
-      data, env)
-    args <- lapply(cl[-1L], eval, data, parent.frame())
+    vars <- eval(as.call(c(matrices, f)), data,
+      list2env(parent=environment(formula), list(
+      `|` = function(...) do.call(cbind, c(deparse.level=0, matrices(...))),
+      `:` = function(...) Reduce(function(x, y) {
+        nx <- ncol(x); ny <- ncol(y)
+        xe <- x[, rep.int(seq_len(nx),rep.int(ny,nx)), drop=FALSE]
+        ye <- y[, rep.int(seq_len(ny),nx), drop=FALSE]
+        `colnames<-`(replace(xe*ye, !(xe&ye), 0),
+          paste(sep=":", colnames(xe), colnames(ye)))
+      }, matrices(...)))))
     if (!is.null(rownms<-row.names(data)) && length(rownms)==nrow(vars$W))
       vars <- lapply(vars, `rownames<-`, rownms)
-    if (!is.null(ss<-args$subset)) vars <- lapply(vars,`[`,ss,,drop=FALSE)
     naadjust <- identity
   }
-  w <- .rowSums(vars$W, nrow(vars$W), ncol(vars$W), TRUE) + is.null(f$W)
-  ss <- w | complete.cases(vars$W)
-  vars$W <- NULL
-  if (!all(ss)) {vars <- lapply(vars,`[`,ss,,drop=FALSE); w <- w[ss]}
-  w[!do.call(complete.cases, vars)] <- 0
+  if (!all(i<-complete.cases(vars$W))) vars <- lapply(vars,`[`,i,,drop=FALSE)
+  w <- vars$W; vars$W <- NULL; w[!do.call(complete.cases,vars),] <- 0
 
   # Center rotated variables X, Y by removing effects of A:
-  z <- sqrt(w) + (sqrt0<-.Machine$double.xmin^.75); stopifnot(sqrt0^2==0)
+  sqrt0 <- .Machine$double.xmin^.75; stopifnot(sqrt0^2==0, ncol(w)==1L)
+  z <- sqrt(w <- w[,]) + sqrt0
   vars <- lapply(vars, `*`, z)
   na <- lapply(vars, function(x) !w & !complete.cases(x))
   for (i in seq_along(vars)) vars[[i]][na[[i]],] <- 0
   zx <- zy <- z; zx[na$A|na$X] <- zy[na$A|na$Y] <- NA
   qa <- QR(vars$A,tol,,order(w,decreasing=TRUE))
-  X <- qr.qty(qa,vars$X[qa$o,,drop=FALSE])
-  Y <- qr.qty(qa,vars$Y[qa$o,,drop=FALSE])
+  X <- qr.qty(qa, vars$X[qa$o,,drop=FALSE])
+  Y <- qr.qty(qa, vars$Y[qa$o,,drop=FALSE])
 
   # Compute QR decompositions QxRx and QyRy of the centered data matrices:
   n <- length(z)
@@ -114,9 +105,9 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
   y <- Q(qy, rbind(SVD$v, matrix(0,n-l,l)))
 
   # Check computability for rows with w=0 (optional, with +sqrt0 above):
-  dfct <- function(d) .rowSums(abs(d)>tol*z,n,ncol(d)) > 0
-  zx[dfct(Q(qa,cbind(qa$d,Q(qx,qx$d))))] <- NaN
-  zy[dfct(Q(qa,cbind(qa$d,Q(qy,qy$d))))] <- NaN
+  dfct <- function(d) .rowSums(abs(d)>tol*z, n, ncol(d)) > 0
+  zx[dfct(Q(qa, cbind(qa$d, Q(qx,qx$d))))] <- NaN
+  zy[dfct(Q(qa, cbind(qa$d, Q(qy,qy$d))))] <- NaN
 
   # Determine residual degrees of freedom (weights are numbers of trials):
   r <- sum(w) - (if (is.null(weights)) qa else QR(vars$A0,tol,,qa$o))$rank

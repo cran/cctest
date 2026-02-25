@@ -45,14 +45,14 @@
     %  [3,]\tab   0\tab   1\tab   0\tab  10
     %}}
   }
-  \item{data}{An optional list (or data frame) or environment in which the 
-    variables in \code{formula}, \code{weights} and \code{...} are looked for 
-    (prior to lookup in the environment in which \code{\link[base]{~}} 
-    or \code{cctest} was invoked).
+  \item{data}{An optional list (or data frame) in which the variables in 
+    \code{formula}, \code{weights} and \code{...} are looked for (prior to 
+    lookup in the environment in which the \code{\link[base]{~}} preceding 
+    \code{A} was invoked).
   }
-  \item{weights}{An optional object of the form \code{~ A0} or \code{W ~ A0}, 
-    where \code{A0} replaces \code{A} for the degrees of freedom computation. 
-    The default means both are the same. The weights vector \code{W} consists 
+  \item{weights}{An optional object of the form \code{~ A0} or \code{w ~ A0}, 
+    where \code{A0} replaces \code{A} for the degrees of freedom computation; 
+    the default means both are the same. The weights vector \code{w} consists 
     of any nonnegative numbers, equal to 1 by default, that specify how many 
     identical observations each row represents. For rows of data with missing 
     values these numbers are internally replaced with 0, and rows with 
@@ -174,16 +174,15 @@ that their square is still numerically zero and hence without effect on the
 correlation analysis.
 
 The simplified \code{formula} notation is intended to provide a simpler, more 
-consistent behavior than the legacy  \code{stats} procedure based on 
+consistent behavior than the legacy \code{stats} procedure based on 
 \code{\link[stats]{terms.formula}}, \code{\link[stats]{model.frame}} and 
 \code{\link[stats]{model.matrix}}. Inconsistent or hard-to-predict behavior 
 can result in \code{model.matrix}, in particular, from the special 
 interpretation of common symbols, the identification of variables by deparsed 
 expressions, the locale-dependent conversion of character variables to 
 factors and the attempts at reducing linear dependencies subject to 
-\code{options("contrasts")}. The \code{stats} procedure and the behavior of a 
-\code{subset} argument, which is currently also processed if \code{stats} is 
-\code{FALSE}, may be removed or altered in the future.
+\code{options("contrasts")}. The \code{stats} procedure may be removed in the 
+future.
 
 For the classical rank tests shown in the Examples, \code{data} must be 
 passed to \code{cctest} with subsetting and removal of missing values done 
@@ -361,14 +360,14 @@ with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
 ## Handling of additional arguments and edge cases:
 cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
   anova(lm(1:150~ori=="E"|ori=="W", dat))
-cctest(h-h5~h10-h5~1|x|y, dat, subset=1:50)
-cctest(h~h10~1+x+y, dat, offset=h5, subset=1:50, stats=TRUE)
-  anova(lm(h-h5~x+y, dat, 1:50), lm(h-h5~x+y+I(h10-h5), dat, 1:50))
+cctest(h-h5~h10-h5~1|x|y, dat, (ori=="E")^NA~1|x|y)
+cctest(h~h10~1+x+y, dat, offset=h5, subset=ori=="E", stats=TRUE)
+  anova(lm(h-h5~x+y, dat, ori=="E"), lm(h-h5~x+y+I(h10-h5), dat, ori=="E"))
+cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
+  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(h*c15/c15~elev~1, dat[1:6,])[1:2]
 cctest(I(h*c15/c15)~elev~1, dat[1:6,], stats=TRUE, na.action=na.exclude)[1:2]
   scale(with(dat[1:6,], cbind(elev,h)*c15/c15))
-cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
-  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
   summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
 cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
@@ -376,10 +375,6 @@ cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
 cctest(NULL~NULL~NULL)
 cctest(0~0~0)
   anova(lm(0~0), lm(0~0+0))
-cctest(1~0~0)
-  anova(lm(1~0), lm(1~0+0))
-cctest(1~1~0)
-  anova(lm(1~0), lm(1~0+1))
-cctest(1~1~0, dat, stats=TRUE)
 cctest(h^0~1~0, dat)
+cctest(1~1~0, dat, stats=TRUE)
   anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}}

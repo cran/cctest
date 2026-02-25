@@ -1,2 +1,2 @@
 export(cctest)
-importFrom(stats,pf,complete.cases,naresid,model.matrix,model.offset)
+importFrom(stats,pf,complete.cases,naresid,model.frame,model.matrix,model.offset)
