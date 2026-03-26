@@ -33,8 +33,8 @@
     result and multiplication by 0 always yields 0, even for missing values. 
     Single-row arguments in \code{~}, \code{|}, \code{:} are expanded to 
     objects with identical rows, and every \code{factor} or character 
-    variable is represented by its full set of indicator (dummy) variables, 
-    with values of character variables \link[base:sort]{sorted} by the 
+    variable is represented by its full set of indicator (dummy) variables. 
+    The values of character variables \link[base:sort]{sorted} by the 
     \code{"radix"} method.
     %For example, if \code{x} and \code{y} are vectors with elements 
     %\code{5,NA,10} and \code{A,A,B}, then \code{(1|x):y} is the matrix 
@@ -47,8 +47,8 @@
   }
   \item{data}{An optional list (or data frame) in which the variables in 
     \code{formula}, \code{weights} and \code{...} are looked for (prior to 
-    lookup in the environment in which the \code{\link[base]{~}} preceding 
-    \code{A} was invoked).
+    lookup in \code{|}, \code{:} and in the environment in which the 
+    \code{\link[base]{~}} preceding \code{A} was invoked).
   }
   \item{weights}{An optional object of the form \code{~ A0} or \code{w ~ A0}, 
     where \code{A0} replaces \code{A} for the degrees of freedom computation; 
@@ -165,23 +165,22 @@ rows.
 }
 
 \note{
-The handling of the weights differs from that in \code{\link[stats]{lm}} 
-unless the nonzero weights are scaled so as to have a mean of 1. Also, to 
-facilitate predictions for rows with zero weights (see Examples), the square 
-roots of the weights, used internally for scaling the data, are always 
-computed as nonzero numbers, even for zero weights, where they are so small 
-that their square is still numerically zero and hence without effect on the 
-correlation analysis.
+The handling of the weights differs from that in \code{\link[stats]{lm}}. 
+Also, to facilitate predictions for rows with zero weights (see Examples), 
+the square roots of the weights, used internally for scaling the data, are 
+always computed as nonzero numbers, even for zero weights, where they are so 
+small that their square is still numerically zero and hence without effect on 
+the correlation analysis.
 
 The simplified \code{formula} notation is intended to provide a simpler, more 
-consistent behavior than the legacy \code{stats} procedure based on 
+consistent behavior than the legacy \pkg{stats} interface based on 
 \code{\link[stats]{terms.formula}}, \code{\link[stats]{model.frame}} and 
 \code{\link[stats]{model.matrix}}. Inconsistent or hard-to-predict behavior 
 can result in \code{model.matrix}, in particular, from the special 
 interpretation of common symbols, the identification of variables by deparsed 
 expressions, the locale-dependent conversion of character variables to 
 factors and the attempts at reducing linear dependencies subject to 
-\code{options("contrasts")}. The \code{stats} procedure may be removed in the 
+\code{options("contrasts")}. The \code{stats} option may be removed in the 
 future.
 
 For the classical rank tests shown in the Examples, \code{data} must be 
@@ -222,11 +221,14 @@ Anderson, T.W. (2007). Multiple discoveries: distribution of roots of
 }
 
 \seealso{
-Functions \code{\link[stats]{cancor}}, \code{\link[stats]{anova.mlm}} in 
-package \code{stats} and implementations of canonical correlation analysis in 
-other packages such as \code{CCP} (tests only), \code{MVar}, \code{candisc} 
-(both including tests based on Wilks’ statistic), \code{yacca}, \code{CCA}, 
-\code{acca}, \code{whitening}.
+\code{\link[stats]{cancor}}, \code{\link[stats]{anova.mlm}} in package 
+\pkg{stats}; functions in package \pkg{coin}, specifically 
+\code{independence_test(..., teststat="quadratic", 
+distribution="asymptotic")}, as equivalents of \code{cctest(... ~ 1)} with 
+chi-squared approximation and for handling data in blocks; implementations of 
+canonical correlation analysis in other packages such as \pkg{CCP} (tests 
+only), \pkg{MVar}, \pkg{candisc} (both including tests based on Wilks’ 
+statistic), \pkg{yacca}, \pkg{CCA}, \pkg{acca}, \pkg{whitening}.
 }
 
 \examples{
@@ -246,8 +248,6 @@ dat <- within(data.frame(row.names=1:150), {
   sapl <- as.integer(log(1/u())^.8*elev/40)     # number of saplings
   rm(u, z)
 })
-\dontrun{
-dat
 
 ## t-tests:
 cctest(h~plot~1, dat)
@@ -273,7 +273,7 @@ cctest(h~ori~1, dat)
 cctest(h~ori~1|elev, dat)
   anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
 cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat)
-  summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):(x+I(x^2)), dat))
+  summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):poly(x,2,raw=TRUE), dat))
 
 ## Test in multivariate linear model based on Pillai's statistic:
 cctest(h|h5|h10~x|y~1|elev, dat)
@@ -291,7 +291,7 @@ cctest(rank(h)~plot~1, dat)
 
 ## Wilcoxon signed rank test:
 cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
-#dat|> within(d<-h-h5)|> subset(d|0)|> with(rank(abs(d))~sign(d)~0)|> cctest()
+#dat|> within(d<-h-h5)|> subset(!!d)|> with(rank(abs(d))~sign(d)~0)|> cctest()
   wilcox.test(h-h5 ~ 1, dat, exact=FALSE, correct=FALSE)
 
 ## Chi-squared test of independence:
@@ -341,9 +341,9 @@ cctest(ave(h,plot,FUN=rank)~ori~plot, aggregate(h~ori+plot,dat,mean))
   friedman.test(h~ori|plot, aggregate(h~ori+plot,dat,mean))
 cctest(ori:cut(elev,4)-cut(elev,4):ori~1~0, dat)
   mcnemar.test(dat$ori, cut(dat$elev,4), correct=FALSE)
-cctest(ave(abs(rank(h,ties.method="f")-mean(rank(h))),h)~plot~1, dat)
+cctest(abs(rank(h)-mean(rank(h)))~plot~1, dat)
   ansari.test(h~plot, dat, exact=FALSE)
-cctest(ave((rank(h,ties.method="f")-mean(rank(h)))^2,h)~plot~1, dat)
+cctest(ave((rank(h,,"first")-mean(rank(h)))^2,rank(h,,"min"))~plot~1, dat)
   mood.test(h~plot, dat)
 cctest(qnorm(rank(-abs(h-ave(h,ori,FUN=median)))/(length(h)+1)/2)~ori~1, dat)
   fligner.test(h~ori, dat)
@@ -353,18 +353,18 @@ cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
     (if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())~0)
   chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
-           c(dat,`\{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
+           c(dat,`{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
     list(estimate/(s<-sqrt((1-estimate^2)*df.residual)), t(xinv*s)))
   prcomp(~h+h5+h10, dat)
 
 ## Handling of additional arguments and edge cases:
 cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
   anova(lm(1:150~ori=="E"|ori=="W", dat))
+cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
+  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(h-h5~h10-h5~1|x|y, dat, (ori=="E")^NA~1|x|y)
 cctest(h~h10~1+x+y, dat, offset=h5, subset=ori=="E", stats=TRUE)
   anova(lm(h-h5~x+y, dat, ori=="E"), lm(h-h5~x+y+I(h10-h5), dat, ori=="E"))
-cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
-  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
 cctest(h*c15/c15~elev~1, dat[1:6,])[1:2]
 cctest(I(h*c15/c15)~elev~1, dat[1:6,], stats=TRUE, na.action=na.exclude)[1:2]
   scale(with(dat[1:6,], cbind(elev,h)*c15/c15))
@@ -376,5 +376,4 @@ cctest(NULL~NULL~NULL)
 cctest(0~0~0)
   anova(lm(0~0), lm(0~0+0))
 cctest(h^0~1~0, dat)
-cctest(1~1~0, dat, stats=TRUE)
-  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}}
+  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}
