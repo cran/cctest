@@ -34,7 +34,7 @@
     Single-row arguments in \code{~}, \code{|}, \code{:} are expanded to 
     objects with identical rows, and every \code{factor} or character 
     variable is represented by its full set of indicator (dummy) variables. 
-    The values of character variables \link[base:sort]{sorted} by the 
+    The values of character variables are \link[base:sort]{sorted} by the 
     \code{"radix"} method.
     %For example, if \code{x} and \code{y} are vectors with elements 
     %\code{5,NA,10} and \code{A,A,B}, then \code{(1|x):y} is the matrix 
@@ -76,7 +76,7 @@
 \value{
   A list with class \code{htest} containing the following components:
   \item{x, y}{matrices \eqn{\tilde{X}} and \eqn{\tilde{Y}} of new transformed 
-    variables}
+    variables with \eqn{K} and \eqn{L} columns, respectively}
   \item{xinv, yinv}{matrices \eqn{U} and \eqn{V} representing the inverse 
     coordinate transformations}
   \item{estimate}{vector of canonical correlations, i.e., the 
@@ -117,7 +117,8 @@ modifying these based on a standard singular value decomposition of that
 matrix. The main work is done in a rotated coordinate system where the column 
 space of \eqn{A} aligns with the coordinate axes. The basic approach and the 
 rank detection algorithm are inspired by the implementations in 
-\code{\link[stats]{cancor}} and in \code{\link[stats]{lm}}, respectively.
+\code{\link[stats]{cancor}} and in \code{\link[stats:lm.fit]{lm}}, 
+respectively, although \acronym{LAPACK} routines are used.
 
 The main diagonal elements of \eqn{D}, or singular values, are the estimated 
 \dfn{canonical correlations} (Hotelling, 1936) of the variables represented 
@@ -159,9 +160,11 @@ The F or beta approximation (Pillai, 1954, p. 99, p. 44) is usually used with
 represents Rao’s (1948) score test (with a test statistic that is \eqn{r} 
 times Pillai’s statistic) in the model obtained after removing (or 
 conditioning on) the orthogonal projections on the column space of 
-\eqn{A_{0}} provided that is a subset of the column space of \eqn{A}; see 
-Mardia and Kent (1991) for the case with independent identically distributed 
-rows.
+\eqn{A_{0}} provided that is a subset of the column space of \eqn{A};
+see Mardia and Kent (1991) for the case with independent identically 
+distributed rows. A more comprehensive derivation of computational 
+equivalences of several procedures is provided in a separate 
+\href{https://wwwpub.zih.tu-dresden.de/~roschlic/Schlicht2026_correlations.pdf}{manuscript}.
 }
 
 \note{
@@ -170,7 +173,10 @@ Also, to facilitate predictions for rows with zero weights (see Examples),
 the square roots of the weights, used internally for scaling the data, are 
 always computed as nonzero numbers, even for zero weights, where they are so 
 small that their square is still numerically zero and hence without effect on 
-the correlation analysis.
+the correlation analysis. For rows of data that imply higher ranks in a 
+calculation compensating for the weight, the corresponding rows of the 
+returned \code{x} or \code{y} are set to \code{NaN}, although this is visible 
+only if they have at least one column.
 
 The simplified \code{formula} notation is intended to provide a simpler, more 
 consistent behavior than the legacy \pkg{stats} interface based on 
@@ -186,6 +192,8 @@ future.
 For the classical rank tests shown in the Examples, \code{data} must be 
 passed to \code{cctest} with subsetting and removal of missing values done 
 beforehand.
+
+Running \code{cctest} by itself shows the complete implementation (150 lines).
 }
 
 \references{
@@ -251,77 +259,76 @@ dat <- within(data.frame(row.names=1:150), {
 
 ## t-tests:
 cctest(h~plot~1, dat)
-  t.test(h~plot, dat, var.equal=TRUE)
-  summary(lm(h~plot, dat))
+  #t.test(h~plot, dat, var.equal=TRUE)
 cctest(h-20~1~0, dat)
-  t.test(dat$h, mu=20)
-  t.test(h~1, dat, mu=20)
+  #t.test(h~1, dat, mu=20)
 cctest(h-h5~1~0, dat)
-  t.test(dat$h, dat$h5, paired=TRUE)
-  t.test(Pair(h,h5)~1, dat)
+  #t.test(dat$h, dat$h5, paired=TRUE)
 
 ## Test for correlation:
 cctest(h~elev~1, dat)
-  cor.test(~h+elev, dat)
+  #cor.test(~h+elev, dat)
 
 ## One-way analysis of variance:
 cctest(h~ori~1, dat)
-  anova(lm(h~ori, dat))
-  oneway.test(h~ori, dat, var.equal=TRUE)
+  #anova(lm(h~ori, dat))
+% #oneway.test(h~ori, dat, var.equal=TRUE)  # some cases
 
 ## F-tests in linear models:
 cctest(h~ori~1|elev, dat)
-  anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
+  #anova(lm(h~1+elev, dat), lm(h~ori+elev, dat))
 cctest(h-h5~(h5-h10):(1|x|x^2)~0, dat)
-  summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):poly(x,2,raw=TRUE), dat))
+  #summary(lm(h-h5~0+I(h5-h10)+I(h5-h10):poly(x,2,raw=TRUE), dat))
 
 ## Test in multivariate linear model based on Pillai's statistic:
 cctest(h|h5|h10~x|y~1|elev, dat)
-  anova(lm(cbind(h,h5,h10)~elev, dat), lm(cbind(h,h5,h10)~elev+x+y, dat))
+  #anova(lm(cbind(h,h5,h10)~elev, dat), lm(cbind(h,h5,h10)~elev+x+y, dat))
 
 ## Test based on Spearman's rank correlation coefficient:
 cctest(rank(h)~rank(elev)~1, dat)
-  cor.test(~h+elev, dat, method="spearman", exact=FALSE)
+  #cor.test(~h+elev, dat, method="spearman", exact=FALSE)
 
 ## Kruskal-Wallis and Wilcoxon rank-sum tests:
 cctest(rank(h)~ori~1, dat)
-  kruskal.test(h~ori, dat)
+  #kruskal.test(h~ori, dat)
 cctest(rank(h)~plot~1, dat)
-  wilcox.test(h~plot, dat, exact=FALSE, correct=FALSE)
+  #wilcox.test(h~plot, dat, exact=FALSE, correct=FALSE)
 
 ## Wilcoxon signed rank test:
 cctest(rank(abs(h-h5))~sign(h-h5)~0, subset(dat, h-h5 != 0))
 #dat|> within(d<-h-h5)|> subset(!!d)|> with(rank(abs(d))~sign(d)~0)|> cctest()
-  wilcox.test(h-h5 ~ 1, dat, exact=FALSE, correct=FALSE)
+  #wilcox.test(h-h5 ~ 1, dat, exact=FALSE, correct=FALSE)
 
 ## Chi-squared test of independence:
 cctest(ori~plot~1, dat, ~0)
 cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), Freq~0)
-  summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
-  chisq.test(dat$ori, dat$plot, correct=FALSE)
+  #summary(xtabs(~ori+plot, dat, drop.unused.levels=TRUE))
+  #chisq.test(dat$ori, dat$plot, correct=FALSE)
+% #prop.test(xtabs(~ori+plot,dat), correct=FALSE)  # some cases
 
 ## Score test in logistic regression (logit model, ...~1 only):
 cctest(c15~x|y~1, dat, ~0)
-  anova(glm(c15~1, binomial, dat, epsilon=1e-20, maxit=200),
-    glm(c15~1+x+y, binomial, dat), test="Rao")
+  #anova(glm(c15~1, binomial, dat, epsilon=1e-20, maxit=200),
+  #  glm(c15~1+x+y, binomial, dat), test="Rao")
 
 ## Score test in multinomial logit model (...~1 only):
 cctest(ori~x|y~1, dat, ~0)
-  with(expand.grid(stringsAsFactors=FALSE,i=row.names(dat),j=levels(dat$ori)),
-    anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-20, maxit=200),
-      glm(ori==j ~ j*(x+y), poisson, dat[i,]), test="Rao"))
+  #with(expand.grid(i=seq_len(nrow(dat)), j=unique(dat$ori)),
+  #  anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-20, maxit=200),
+  #    glm(ori==j ~ j*(x+y), poisson, dat[i,]), test="Rao"))
 
 ## Absolute values of (partial) correlation coefficients:
 cctest(h~elev~1, dat)$est
-  cor(dat$h, dat$elev)
+  #cor(dat$h, dat$elev)
 cctest(h~elev~1|x|y, dat)$est
-  cov2cor(estVar(lm(cbind(h,elev)~1+x+y, dat)))
+  #cov2cor(estVar(lm(cbind(h,elev)~1+x+y, dat)))
 cctest(h~x|y|elev~1, dat)$est^2
-  summary(lm(h~1+x+y+elev, dat))$r.squared
+  #summary(lm(h~1+x+y+elev, dat))$r.squared
+%print(cctest(c(2,1)~diag(2)~0)$est, 18)  # inexactness warning (case u==t)
 
 ## Canonical correlations:
 cctest(h|h5|h10~x|y~1, dat)$est
-  cancor(dat[c("x","y")],dat[c("h","h5","h10")])$cor
+  #cancor(dat[c("x","y")],dat[c("h","h5","h10")])$cor
 
 ## Linear discriminant analysis:
 with(cctest(h|h5|h10~ori~1, dat, ~ori), y / sqrt(1-estimate^2)[col(y)])[1:7,]
@@ -334,46 +341,36 @@ cctest(ori~plot~1, as.data.frame(xtabs(~ori+plot,dat)), Freq~0)[1:2]
 ## Prediction in multivariate linear model:
 with(cctest(h|h5|h10~1|x|y~0, dat, plot=="a"~0),
     x \%*\% diag(estimate,ncol(x),ncol(y)) \%*\% yinv)[1:7,]
-  predict(lm(cbind(h,h5,h10)~1+x+y, dat, subset=plot=="a"), dat)[1:7,]
+  #predict(lm(cbind(h,h5,h10)~1+x+y, dat, subset=plot=="a"), dat)[1:7,]
 
 ## Other constructions:
 cctest(ave(h,plot,FUN=rank)~ori~plot, aggregate(h~ori+plot,dat,mean))
-  friedman.test(h~ori|plot, aggregate(h~ori+plot,dat,mean))
+  #friedman.test(h~ori|plot, aggregate(h~ori+plot,dat,mean))
 cctest(ori:cut(elev,4)-cut(elev,4):ori~1~0, dat)
-  mcnemar.test(dat$ori, cut(dat$elev,4), correct=FALSE)
+  #mcnemar.test(dat$ori, cut(dat$elev,4), correct=FALSE)
 cctest(abs(rank(h)-mean(rank(h)))~plot~1, dat)
-  ansari.test(h~plot, dat, exact=FALSE)
+  #ansari.test(h~plot, dat, exact=FALSE)
 cctest(ave((rank(h,,"first")-mean(rank(h)))^2,rank(h,,"min"))~plot~1, dat)
-  mood.test(h~plot, dat)
+  #mood.test(h~plot, dat)
 cctest(qnorm(rank(-abs(h-ave(h,ori,FUN=median)))/(length(h)+1)/2)~ori~1, dat)
-  fligner.test(h~ori, dat)
-cctest(h~diag(plot=="a",length(plot))~plot, dat)
-  var.test(h~plot, dat, alternative="greater")
+  #fligner.test(h~ori, dat)
+cctest(h~diag(plot=="a",length(plot))~plot, dat[1:7,])
+  #var.test(h~plot, dat[1:7,], alternative="greater")
 cctest(ori:sum(Freq)/Freq-1~1~0, as.data.frame(xtabs(~ori,dat)),
     (if(all(Freq)) Freq^2/sum(Freq)/c(.2,.3,.4,.1) else stop())~0)
-  chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
+  #chisq.test(xtabs(~ori,dat), p=c(.2,.3,.4,.1))
 with(cctest({h|h5|h10;0;0;0} ~ {h|h5|h10;diag(3)} ~ {1|0*x;0;0;0},
            c(dat,`{`=rbind), ~ {h|h5|h10;diag(3)} | {1|0*x;0;0;0}),
     list(estimate/(s<-sqrt((1-estimate^2)*df.residual)), t(xinv*s)))
-  prcomp(~h+h5+h10, dat)
+  #prcomp(~h+h5+h10, dat)
 
 ## Handling of additional arguments and edge cases:
-cctest(1:150~ori=="E"|ori=="W"~1, c(dat,`:`=`:`,`|`=`|`))
-  anova(lm(1:150~ori=="E"|ori=="W", dat))
-cctest(h~x~1, dat, weights=sapl/mean(sapl[sapl!=0])~1)
-  anova(lm(h~1, dat, weights=sapl), lm(h~1+x, dat, weights=sapl))
-cctest(h-h5~h10-h5~1|x|y, dat, (ori=="E")^NA~1|x|y)
-cctest(h~h10~1+x+y, dat, offset=h5, subset=ori=="E", stats=TRUE)
-  anova(lm(h-h5~x+y, dat, ori=="E"), lm(h-h5~x+y+I(h10-h5), dat, ori=="E"))
-cctest(h*c15/c15~elev~1, dat[1:6,])[1:2]
-cctest(I(h*c15/c15)~elev~1, dat[1:6,], stats=TRUE, na.action=na.exclude)[1:2]
-  scale(with(dat[1:6,], cbind(elev,h)*c15/c15))
-cctest(c15~h~1, dat,     tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2))
-  summary(lm(c15~h, dat, tol=0.999*sqrt(1-cctest(h~1~0,dat)$est^2)))
-cctest(c15~h~1, dat,     tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2))
-  summary(lm(c15~h, dat, tol=1.001*sqrt(1-cctest(h~1~0,dat)$est^2)))
-cctest(NULL~NULL~NULL)
-cctest(0~0~0)
-  anova(lm(0~0), lm(0~0+0))
-cctest(h^0~1~0, dat)
-  anova(lm(h^0~0, dat), lm(h^0~0+1, dat))}
+cctest(1:150~x<6|y<6~1, c(dat,`:`=`:`,`|`=`|`), sapl/mean(sapl[sapl!=0])~1)
+  #anova(lm(1:150~x<6|y<6, dat, weights=sapl))
+cctest(h-h5~h10-h5~c15/c15, dat, (x<6)^NA~c15/c15)[1:2]
+cctest(h~h10~offset(h5)+I(c15/c15), dat, , subset=x<6, NULL, stats=TRUE)[1:2]
+  #scale(with(subset(dat,x<6), (cbind(h10,h)-h5)*c15/c15))
+cctest(y~x~1, expand.grid(x=c(1,7)+.001, y=c(1,7)-.001), tol=0.6)[3:4]
+  #lm(x+y~x+y, expand.grid(x=c(1,7)+.001, y=c(1,7)-.001), tol=0.6)
+cctest(numeric()~NULL~NULL)
+  #lm(numeric()~0)}
