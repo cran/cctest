@@ -1,6 +1,6 @@
-300ed2250a3429fd8723a2a40b162955 *DESCRIPTION
+46d017cc1f8b1577a2bbd46ed8810474 *DESCRIPTION
 dbc73e7f2c0cd83ace55b0c52bbe6206 *LICENSE
 f61d068feda26e34ba73814dc61d7fda *NAMESPACE
-8dae4e4d2dffc5aea74abeab7d128a6c *R/cctest.R
-ba582b375e5afde780e991c9b7711c6a *build/partial.rdb
-c0bfd86b2945c5b34a0ec2a73c626542 *man/cctest.Rd
+0e841087a7d77b384eb37053e8c0909e *R/cctest.R
+9d5d57306c989a862d29353812d857e7 *build/partial.rdb
+6ecfa40412acc8ba7f025a92cf24516b *man/cctest.Rd

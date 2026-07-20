@@ -111,12 +111,12 @@ on its main diagonal arranged in decreasing order. The scaling factor
 complement of the column space of \eqn{A_{0}}.
 
 The function realizes this variant of the singular value decomposition by 
-first computing preliminary QR factorizations of the stated form (taking 
-\eqn{r=1}) without the requirement on \eqn{D}, and then, in a second step, 
-modifying these based on a standard singular value decomposition of that 
-matrix. The main work is done in a rotated coordinate system where the column 
-space of \eqn{A} aligns with the coordinate axes. The basic approach and the 
-rank detection algorithm are inspired by the implementations in 
+first computing preliminary QR factorizations, taking \eqn{r=1} and without 
+the diagonal requirement on \eqn{D}, and then, in a second step, modifying 
+these based on a standard singular value decomposition of that matrix. The 
+main work is done in a rotated coordinate system where the column space of 
+\eqn{A} aligns with the coordinate axes. The basic approach and the rank 
+detection algorithm are inspired by the implementations in 
 \code{\link[stats]{cancor}} and in \code{\link[stats:lm.fit]{lm}}, 
 respectively, although \acronym{LAPACK} routines are used.
 
@@ -257,7 +257,7 @@ dat <- within(data.frame(row.names=1:150), {
   rm(u, z)
 })
 
-## t-tests:
+## t-tests:                                                   => p-value.beta
 cctest(h~plot~1, dat)
   #t.test(h~plot, dat, var.equal=TRUE)
 cctest(h-20~1~0, dat)
@@ -288,7 +288,7 @@ cctest(h|h5|h10~x|y~1|elev, dat)
 cctest(rank(h)~rank(elev)~1, dat)
   #cor.test(~h+elev, dat, method="spearman", exact=FALSE)
 
-## Kruskal-Wallis and Wilcoxon rank-sum tests:
+## Kruskal-Wallis and Wilcoxon rank-sum tests:                => p-value.gamma
 cctest(rank(h)~ori~1, dat)
   #kruskal.test(h~ori, dat)
 cctest(rank(h)~plot~1, dat)
@@ -317,20 +317,20 @@ cctest(ori~x|y~1, dat, ~0)
   #  anova(glm(ori==j ~ j+x+y, poisson, dat[i,], epsilon=1e-20, maxit=200),
   #    glm(ori==j ~ j*(x+y), poisson, dat[i,]), test="Rao"))
 
-## Absolute values of (partial) correlation coefficients:
-cctest(h~elev~1, dat)$est
+## Absolute values of (partial) correlation coefficients:     => estimate
+cctest(h~elev~1, dat)
   #cor(dat$h, dat$elev)
-cctest(h~elev~1|x|y, dat)$est
+cctest(h~elev~1|x|y, dat)
   #cov2cor(estVar(lm(cbind(h,elev)~1+x+y, dat)))
-cctest(h~x|y|elev~1, dat)$est^2
+cctest(h~x|y|elev~1, dat)$estimate^2
   #summary(lm(h~1+x+y+elev, dat))$r.squared
 %print(cctest(c(2,1)~diag(2)~0)$est, 18)  # inexactness warning (case u==t)
 
 ## Canonical correlations:
-cctest(h|h5|h10~x|y~1, dat)$est
+cctest(h|h5|h10~x|y~1, dat)
   #cancor(dat[c("x","y")],dat[c("h","h5","h10")])$cor
 
-## Linear discriminant analysis:
+## Linear discriminant analysis:                              => various
 with(cctest(h|h5|h10~ori~1, dat, ~ori), y / sqrt(1-estimate^2)[col(y)])[1:7,]
   #predict(MASS::lda(ori~h+h5+h10,dat))$x[1:7,]
 

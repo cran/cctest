@@ -7,7 +7,7 @@ cctest <- function(formula, data=NULL, weights=NULL, ..., tol=1e-7,
       s <- .colSums(x^2, nrow(x), ncol(x)); stopifnot(is.finite(s))
       x <- x * tcrossprod(n > r, 1/sqrt(replace(s, !s, 1)))
       q <- if (length(o)) qr(Qt(list(o=o), x), LAPACK=TRUE) else
-         list(qr=x, rank=0, qraux=numeric(), pivot=seq_along(s))
+         list(qr=x, rank=0L, qraux=numeric(), pivot=seq_along(s))
       t <- c(abs(diag(q$qr)) > tol, logical(length(s)-length(q$qraux)))
       q$qr <- q$qr[, t, drop=FALSE]; x <- x[, q$pivot[!t], drop=FALSE]
       q$pivot <- seq_len(q$rank <- length(q$qraux <- q$qraux[t]))
